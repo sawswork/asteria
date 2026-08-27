@@ -2,23 +2,23 @@
 
 マイルストーン進捗。毎コミットで更新する。
 
-## M1: 最小戦闘ループ — 進行中
+## M1: 最小戦闘ループ — 実装完了(実機E2Eはmainマージ待ち)
 
 - [x] CLAUDE.md / ARCHITECTURE.md / PROGRESS.md / DECISIONS.md 作成
-- [ ] world.json / balance.json(世界定数とバランス係数の分離)
-- [ ] エンジン純粋関数コア(AGI順解決・ヘイト・挑発ロック・CT・奥義ゲージ)
-- [ ] 敵AIルール層(ヘイト最大狙い・挑発ロック遵守)
-- [ ] 仮パーティ4人(A/S/T/H)+固定敵1体の初期セーブ
-- [ ] engine.cli(`python -m engine.cli --input fixtures/turn.json`)
-- [ ] 戦況ボードSVG(自己完結・≤50KB)+README反映(SHA付きURL)
-- [ ] Issue Form(固定YAML・スロット語彙)
-- [ ] turn.yml ワークフロー(concurrency直列化・オーナーチェック・最小permissions)
-- [ ] 不正手のエラー返信+ターン不消費
-- [ ] 冪等性(フォーム連投でセーブが壊れない)
-- [ ] ユニットテスト全通過(AIモック)
-- [ ] ローカルE2E(3ターン以上戦い勝利)
+- [x] world.json / balance.json(世界定数とバランス係数の分離)
+- [x] エンジン純粋関数コア(AGI順解決・ヘイト・挑発ロック・CT・奥義ゲージ)
+- [x] 敵AIルール層(ヘイト最大狙い・挑発ロック遵守)
+- [x] 仮パーティ4人(A/S/T/H)+固定敵1体の初期セーブ
+- [x] engine.cli(`python -m engine.cli --input fixtures/turn.json`)
+- [x] 戦況ボードSVG(自己完結・≤50KB)+README反映(SHA付きURL)
+- [x] Issue Form(固定YAML・スロット語彙)
+- [x] turn.yml ワークフロー(concurrency直列化・オーナーチェック・最小permissions)
+- [x] 不正手のエラー返信+ターン不消費
+- [x] 冪等性(フォーム連投でセーブが壊れない)
+- [x] ユニットテスト全通過(AIモック・56件)
+- [x] ローカルE2E(3ターン以上戦い勝利: tests/test_turn_runner.py)
 - [ ] 実機E2E(Issue投稿→Actions→README更新→クローズ)※mainマージ後
-- [ ] PROGRESS.md 完了記録+gitタグ v0.1-m1
+- [ ] PROGRESS.md 完了記録+gitタグ v0.1-m1(実機E2E通過後に打つ)
 
 ## M2: 生成系 — 未着手
 
@@ -44,6 +44,19 @@
 - [ ] 適応進化+歪み / スキャン / チェイン反応表 / 制約と誓約 / 宿敵 / 時戻し / PR攻撃 / 歴史の共鳴 / フルオートN
 - [ ] 受入: 各ギミックの実機デモ手順を本書に記載し、1回ずつ発動確認
 
-## スマホでの確認手順(M1完了時に確定)
+## スマホでの確認手順(M1)
 
-(M1完了時に記載)
+前提: このブランチ(claude/kickoff-prompt-autonomous-oumsyx)を main にマージ済みであること
+(issuesイベント起動のワークフローはデフォルトブランチ上のものだけが動くため)。
+
+1. GitHubアプリでリポジトリ https://github.com/sawswork/asteria を開く
+2. README(Code タブ先頭)に戦況ボードが表示される。「▶ ターンを入力する」をタップ
+3. 「⚔ ターン入力」フォームで4人の行動と対象を選び Submit(初回は全員「通常攻撃/自動」でOK)
+4. 30〜60秒待つと、そのIssueに「⚔ ターンnの結果」コメントが付き、Issueが自動クローズされる
+5. READMEに戻って再読込 → ボードのHP・ゲージ・CT・ログが更新されている
+6. これを繰り返して敵HPを0に → 「🏆 勝利!」表示。次のターン送信で新しい戦闘が始まる
+7. 不正手の確認: CT中の技(ボードで「CTn」表示のチップ)を選んで送信 → エラー返信され、ターンは消費されない
+8. 連投の確認: フォームを続けて2回送信 → concurrencyで順番に処理され、セーブは壊れない
+
+トラブル時: Actions タブ → 「turn」ワークフローの実行ログを確認。手動デバッグは「Run workflow」
+(workflow_dispatch)でドライランのスモークが走る。
