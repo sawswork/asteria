@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "damage": {
+    "def_coeff": 0.5,
+    "variance_min": 0.9,
+    "variance_max": 1.1,
+    "min_damage": 1
+  },
+  "heal": {
+    "variance_min": 0.95,
+    "variance_max": 1.05
+  },
+  "ult_gauge": {
+    "max": 100,
+    "normal_attack": 25,
+    "ability": 15,
+    "wait": 30,
+    "hit_taken": 10
+  },
+  "hate": {
+    "initial": 5,
+    "damage_mult": 1.0,
+    "heal_mult": 1.5,
+    "buff_flat": 5,
+    "taunt_mult": 2.0,
+    "taunt_flat": 50
+  },
+  "taunt": {
+    "lock_turns": 2
+  },
+  "enemy": {
+    "strong_attack_every": 3
+  },
+  "journal_max_entries": 200
+}
