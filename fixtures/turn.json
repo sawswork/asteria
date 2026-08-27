@@ -1,0 +1,8 @@
+{
+  "commands": {
+    "attacker": {"action": "アビ1", "target": "自動"},
+    "support": {"action": "アビ1", "target": "自動"},
+    "tank": {"action": "アビ1", "target": "自動"},
+    "healer": {"action": "通常攻撃", "target": "自動"}
+  }
+}

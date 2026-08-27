@@ -1,0 +1,81 @@
+name: ⚔ ターン入力
+description: 4人の行動を予約して1ターンを実行する
+title: "[TURN] ターン入力"
+labels: ["turn"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        READMEの戦況ボードで各スロットの中身(技名)・CT・星光ゲージを確認してから選んでください。
+        CT中の技やゲージ不足の奥義を選ぶとエラー返信になり、ターンは消費されません。
+  - type: dropdown
+    id: attacker_action
+    attributes:
+      label: アタッカーの行動
+      options: ["通常攻撃", "アビ1", "アビ2", "アビ3", "奥義", "待機"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: attacker_target
+    attributes:
+      label: アタッカーの対象
+      options: ["自動", "敵1", "敵2", "敵3", "アタッカー", "サポート", "タンク", "ヒーラー"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: support_action
+    attributes:
+      label: サポートの行動
+      options: ["通常攻撃", "アビ1", "アビ2", "アビ3", "奥義", "待機"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: support_target
+    attributes:
+      label: サポートの対象
+      options: ["自動", "敵1", "敵2", "敵3", "アタッカー", "サポート", "タンク", "ヒーラー"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: tank_action
+    attributes:
+      label: タンクの行動
+      options: ["通常攻撃", "アビ1", "アビ2", "アビ3", "奥義", "待機"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: tank_target
+    attributes:
+      label: タンクの対象
+      options: ["自動", "敵1", "敵2", "敵3", "アタッカー", "サポート", "タンク", "ヒーラー"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: healer_action
+    attributes:
+      label: ヒーラーの行動
+      options: ["通常攻撃", "アビ1", "アビ2", "アビ3", "奥義", "待機"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: healer_target
+    attributes:
+      label: ヒーラーの対象
+      options: ["自動", "敵1", "敵2", "敵3", "アタッカー", "サポート", "タンク", "ヒーラー"]
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: free_text
+    attributes:
+      label: 自由記述(任意・M2で対応)
+      description: 例「タンクで守って全員で集中攻撃」。M1ではスロット選択のみが実行されます。
+    validations:
+      required: false

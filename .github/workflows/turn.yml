@@ -1,0 +1,38 @@
+name: turn
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: asteria-turn
+  cancel-in-progress: false
+
+jobs:
+  turn:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (startsWith(github.event.issue.title, '[TURN]') &&
+       github.event.issue.user.login == github.repository_owner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve turn
+        if: github.event_name == 'issues'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m engine.turn_runner --event-path "$GITHUB_EVENT_PATH"
+      - name: Smoke run (manual dispatch, dry run)
+        if: github.event_name == 'workflow_dispatch'
+        run: python -m engine.cli --input fixtures/turn.json
