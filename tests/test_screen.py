@@ -1,9 +1,11 @@
 from engine.screen import render_readme
 
 
-def test_readme_contains_board_url_with_sha(battle_save, world):
-    md = render_readme(battle_save, world, "owner/repo", "abc123")
-    assert "https://raw.githubusercontent.com/owner/repo/abc123/assets/board.svg" in md
+def test_readme_board_url_relative_with_cache_key(battle_save, world):
+    md = render_readme(battle_save, world, "owner/repo", "t3-i12")
+    # 相対URL+キャッシュ回避クエリ(非公開リポジトリでも表示され、camoキャッシュも回避される)
+    assert "![戦況ボード](assets/board.svg?v=t3-i12)" in md
+    assert "raw.githubusercontent.com" not in md
     assert "issues/new?template=turn.yml" in md
     assert "アステリア" in md
 

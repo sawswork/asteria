@@ -1,6 +1,7 @@
 """README(ゲーム画面)の生成。
 
-READMEは毎ターン全体を再生成する。ボード画像URLにはコミットSHAを付与してキャッシュを回避する。
+READMEは毎ターン全体を再生成する。ボード画像は相対URL+キャッシュ回避クエリ(?v=<cache_key>)で参照する:
+相対パスは非公開リポジトリでも認証付きで表示され、クエリはcamoのキャッシュキーを変えるため毎ターン更新が反映される。
 世界の固有名詞は world.json から受け取る(エンジン不変則)。
 """
 from __future__ import annotations
@@ -18,13 +19,14 @@ def _prefill_link(repo_slug: str, fields: dict[str, str]) -> str:
     return f"https://github.com/{repo_slug}/issues/new?template={TEMPLATE_FILE}&{params}"
 
 
-def render_readme(save: Save, world: dict[str, Any], repo_slug: str, sha: str) -> str:
+def render_readme(save: Save, world: dict[str, Any], repo_slug: str, cache_key: str) -> str:
     world_name = str(world["world_name"])
     tagline = str(world.get("tagline", ""))
-    if sha == "local":
-        board_url = "assets/board.svg"  # ローカル生成・初期コミット用(閲覧中のブランチで解決される)
+    gauge_term = str(world["power_system"]["ult_gauge_term"])
+    if cache_key == "local":
+        board_url = "assets/board.svg"  # ローカル生成・初期コミット用
     else:
-        board_url = f"https://raw.githubusercontent.com/{repo_slug}/{sha}/assets/board.svg"
+        board_url = f"assets/board.svg?v={cache_key}"
     new_turn_url = f"https://github.com/{repo_slug}/issues/new?template={TEMPLATE_FILE}"
     all_normal_url = _prefill_link(
         repo_slug,
@@ -60,9 +62,9 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 
 {status}
 
-<!-- ASTERIA:BOARD:BEGIN -->
+<!-- GAME:BOARD:BEGIN -->
 ![戦況ボード]({board_url})
-<!-- ASTERIA:BOARD:END -->
+<!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
 
@@ -75,7 +77,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 
 ## 📖 遊び方
 
-1. 上のボードで各メンバーの**HP / 星光ゲージ / 技のCT**を確認する
+1. 上のボードで各メンバーの**HP / {gauge_term} / 技のCT**を確認する
 2. 「ターンを入力する」で行動(アビ1〜3・奥義・通常攻撃・待機)と対象を選ぶ
 3. 各スロットの中身(技の名前と効果)はボードのチップに表示されている
 4. CT中の技や、ゲージ不足の奥義を選ぶとエラー返信になり**ターンは消費されない**

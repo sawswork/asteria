@@ -1,10 +1,15 @@
 """GitHub Actions エントリポイント。
 
-issuesイベント(ターン入力フォーム)を受けて1ターンを処理する:
-  検証 → 戦闘解決 → セーブ/ボード書込 → コミット(SHA取得) → README更新 → push → 結果返信 → クローズ
+issuesイベント(ターン入力フォーム)を受けてターンを処理する。取りこぼし防止のため、
+イベントのIssueだけでなくオープンな [TURN] Issue を番号順に全て処理する
+(concurrencyのpendingスロットは1つしかなく、連投時に待機中のrunがキャンセルされ得るため)。
 
+各Issueの処理:
+  検証 → 戦闘解決 → セーブ/ボード/README書込 → 1コミット → push → 結果返信 → クローズ
+
+push が拒否された場合(直列化の外からリポジトリが進んだ場合)は、リモート先端に
+リセットしてからターン全体を再解決する(リプレイ方式。処理済みIssueは冪等スキップ)。
 不正手はエラー返信+クローズのみでセーブに一切触れない(ターン不消費)。
-処理済みIssueの再実行は冪等(セーブ不変のまま案内コメントを返す)。
 """
 from __future__ import annotations
 
@@ -12,6 +17,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -28,16 +34,13 @@ from .save_io import load_json, load_save, write_save
 TITLE_PREFIX = "[TURN]"
 PROCESSED_ISSUES_MAX = 500
 LABEL_PROCESSED = "turn"
+MAX_PUSH_REPLAYS = 3
 
 SAVE_PATH = "save/state.json"
 BOARD_PATH = "assets/board.svg"
 README_PATH = "README.md"
 WORLD_PATH = "world/world.json"
 BALANCE_PATH = "world/balance.json"
-
-
-def _issue_url(repo_slug: str, number: int) -> str:
-    return f"https://github.com/{repo_slug}/issues/{number}"
 
 
 def _reply_invalid(errors: list[InvalidMove], repo_slug: str) -> str:
@@ -76,8 +79,7 @@ def _reply_result(
     return "\n".join(parts)
 
 
-def process_issue_event(event: dict[str, Any], repo_slug: str, root: str, do_git: bool, gh: GhApi | None) -> int:
-    issue = event["issue"]
+def process_issue(issue: dict[str, Any], repo_slug: str, root: str, do_git: bool, gh: GhApi | None) -> None:
     number = int(issue["number"])
     title = str(issue.get("title", ""))
     body = str(issue.get("body") or "")
@@ -85,70 +87,99 @@ def process_issue_event(event: dict[str, Any], repo_slug: str, root: str, do_git
     owner = repo_slug.split("/")[0]
 
     if not title.startswith(TITLE_PREFIX):
-        print(f"skip: title does not start with {TITLE_PREFIX}")
-        return 0
+        print(f"skip #{number}: title does not start with {TITLE_PREFIX}")
+        return
     if author != owner:
         # 公開運用時の防御: 他者のターン投稿は処理しない(ワークフロー側のifと二重チェック)
-        print("skip: issue author is not the repository owner")
-        return 0
+        print(f"skip #{number}: issue author is not the repository owner")
+        return
 
     root_path = Path(root)
     world = load_json(root_path / WORLD_PATH)
     balance = load_json(root_path / BALANCE_PATH)
-    save = load_save(root_path / SAVE_PATH)
 
-    if number in save.processed_issues:
-        if gh:
-            gh.post_comment(number, "ℹ このターンは処理済みです(セーブは変更されていません)。")
-            gh.close_issue(number)
-        print(f"skip: issue #{number} already processed")
-        return 0
+    last_error = ""
+    for attempt in range(MAX_PUSH_REPLAYS):
+        save = load_save(root_path / SAVE_PATH)
 
-    started_new_battle = False
-    if save.battle is None or not save.battle.active:
-        save = battle_mod.start_battle(save, world, balance)
-        started_new_battle = True
+        if number in save.processed_issues:
+            if gh:
+                gh.post_comment(number, "ℹ このターンは処理済みです(セーブは変更されていません)。")
+                gh.close_issue(number)
+            print(f"skip #{number}: already processed")
+            return
 
-    parsed = parse_issue_body(body)
-    ult_max = int(balance["ult_gauge"]["max"])
-    errors: list[InvalidMove] = [InvalidMove("-", e) for e in parsed.errors]
-    if not errors:
-        assert save.battle is not None
-        errors = validate_commands(save, save.battle, parsed.commands, ult_max)
-    if errors:
-        if gh:
-            gh.post_comment(number, _reply_invalid(errors, repo_slug))
-            gh.close_issue(number)
-        print(f"invalid move(s) on issue #{number}; turn not consumed")
-        return 0
+        started_new_battle = False
+        if save.battle is None or not save.battle.active:
+            save = battle_mod.start_battle(save, world, balance)
+            started_new_battle = True
 
-    new_save, report = battle_mod.resolve_turn(save, parsed.commands, balance)
-    new_save.processed_issues.append(number)
-    del new_save.processed_issues[:-PROCESSED_ISSUES_MAX]
+        parsed = parse_issue_body(body)
+        errors: list[InvalidMove] = [InvalidMove("-", e) for e in parsed.errors]
+        if not errors:
+            assert save.battle is not None
+            errors = validate_commands(save, save.battle, parsed.commands, balance)
+        if errors:
+            if gh:
+                gh.post_comment(number, _reply_invalid(errors, repo_slug))
+                gh.close_issue(number)
+            print(f"invalid move(s) on issue #{number}; turn not consumed")
+            return
 
-    write_save(new_save, root_path / SAVE_PATH)
-    svg = board_mod.build_board_svg(new_save, world, balance)
-    board_file = root_path / BOARD_PATH
-    board_file.parent.mkdir(parents=True, exist_ok=True)
-    board_file.write_text(svg, encoding="utf-8")
+        new_save, report = battle_mod.resolve_turn(save, parsed.commands, balance, world)
+        new_save.processed_issues.append(number)
+        del new_save.processed_issues[:-PROCESSED_ISSUES_MAX]
 
-    sha = "local"
-    if do_git:
-        gitops.configure_identity(root)
-        sha = gitops.commit([SAVE_PATH, BOARD_PATH], f"turn {report.turn}: issue #{number}", cwd=root)
-    (root_path / README_PATH).write_text(
-        screen.render_readme(new_save, world, repo_slug, sha), encoding="utf-8"
-    )
-    if do_git:
-        gitops.commit([README_PATH], f"screen: update board for turn {report.turn}", cwd=root)
-        gitops.push(cwd=root)
+        write_save(new_save, root_path / SAVE_PATH)
+        svg = board_mod.build_board_svg(new_save, world, balance)
+        board_file = root_path / BOARD_PATH
+        board_file.parent.mkdir(parents=True, exist_ok=True)
+        board_file.write_text(svg, encoding="utf-8")
+        cache_key = f"t{report.turn}-i{number}"  # ターン×Issue番号で一意(camoキャッシュ回避)
+        (root_path / README_PATH).write_text(
+            screen.render_readme(new_save, world, repo_slug, cache_key), encoding="utf-8"
+        )
 
+        pushed = True
+        if do_git:
+            gitops.configure_identity(root)
+            gitops.commit(
+                [SAVE_PATH, BOARD_PATH, README_PATH],
+                f"turn {report.turn}: issue #{number}",
+                cwd=root,
+            )
+            pushed, last_error = gitops.push_once(cwd=root)
+
+        if pushed:
+            if gh:
+                gh.add_labels(number, [LABEL_PROCESSED])
+                gh.post_comment(
+                    number, _reply_result(report, new_save, repo_slug, started_new_battle, parsed.free_text)
+                )
+                gh.close_issue(number)
+            print(f"turn {report.turn} resolved for issue #{number} (result={report.result})")
+            return
+
+        # push拒否: リモート先端に合わせて全体をリプレイ(セーブもリモートの物に戻る)
+        print(f"push rejected for issue #{number} (attempt {attempt + 1}); replaying from remote state")
+        gitops.sync_with_remote(cwd=root)
+        time.sleep(2**attempt)
+
+    raise RuntimeError(f"turn push failed after {MAX_PUSH_REPLAYS} replays: {last_error}")
+
+
+def _collect_issues(event: dict[str, Any], gh: GhApi | None) -> list[dict[str, Any]]:
+    """イベントのIssue+オープンな[TURN] Issueを番号昇順で返す(取りこぼし回収)。"""
+    by_number: dict[int, dict[str, Any]] = {}
     if gh:
-        gh.add_labels(number, [LABEL_PROCESSED])
-        gh.post_comment(number, _reply_result(report, new_save, repo_slug, started_new_battle, parsed.free_text))
-        gh.close_issue(number)
-    print(f"turn {report.turn} resolved for issue #{number} (result={report.result})")
-    return 0
+        try:
+            for it in gh.list_open_turn_issues(TITLE_PREFIX):
+                by_number[int(it["number"])] = it
+        except RuntimeError as e:
+            print(f"warning: could not list open issues ({e}); processing event issue only")
+    ev = event["issue"]
+    by_number.setdefault(int(ev["number"]), ev)
+    return [by_number[n] for n in sorted(by_number)]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -176,20 +207,22 @@ def main(argv: list[str] | None = None) -> int:
             print("error: GITHUB_TOKEN が必要です", file=sys.stderr)
             return 2
         gh = GhApi(args.repo, token)
-    try:
-        return process_issue_event(event, args.repo, args.root, not args.no_git, gh)
-    except Exception as e:  # エラーはIssueに要約だけ返して失敗させる(全文やSecretsは出さない)
-        if gh:
-            try:
-                number = int(event["issue"]["number"])
-                gh.post_comment(
-                    number,
-                    "## 💥 エンジンエラー\n\nターン処理中に問題が発生しました。"
-                    f"セーブは直前の状態のままです。\n\n`{type(e).__name__}`",
-                )
-            except Exception:
-                pass
-        raise
+
+    for issue in _collect_issues(event, gh):
+        try:
+            process_issue(issue, args.repo, args.root, not args.no_git, gh)
+        except Exception as e:  # エラーは該当Issueに要約だけ返して失敗させる(全文やSecretsは出さない)
+            if gh:
+                try:
+                    gh.post_comment(
+                        int(issue["number"]),
+                        "## 💥 エンジンエラー\n\nターン処理中に問題が発生しました。"
+                        f"セーブは直前の状態のままです。\n\n`{type(e).__name__}`",
+                    )
+                except Exception:
+                    pass
+            raise
+    return 0
 
 
 if __name__ == "__main__":

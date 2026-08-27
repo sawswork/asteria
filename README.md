@@ -6,9 +6,9 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 
 🏕 拠点で休息中。ターンを送信すると冒険が始まる。
 
-<!-- ASTERIA:BOARD:BEGIN -->
+<!-- GAME:BOARD:BEGIN -->
 ![戦況ボード](assets/board.svg)
-<!-- ASTERIA:BOARD:END -->
+<!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
 

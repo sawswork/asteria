@@ -24,6 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # issuesイベントのgithub.shaは「Issue作成時点」のSHAに固定されるため、
+          # 待機後に実行されるrunでも必ずブランチの最新先端をチェックアウトする
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:

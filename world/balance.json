@@ -4,11 +4,13 @@
     "def_coeff": 0.5,
     "variance_min": 0.9,
     "variance_max": 1.1,
-    "min_damage": 1
+    "min_damage": 1,
+    "normal_attack_power": 1.0
   },
   "heal": {
     "variance_min": 0.95,
-    "variance_max": 1.05
+    "variance_max": 1.05,
+    "min_heal": 1
   },
   "ult_gauge": {
     "max": 100,

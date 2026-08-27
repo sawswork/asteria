@@ -46,14 +46,17 @@ tests/                  pytest(全てAIモックで実行)
 プレイヤー(スマホのGitHubアプリ)
   └─ Issue Form「ターン入力」送信 (固定ドロップダウン: アビ1/アビ2/アビ3/奥義/通常攻撃/待機 × 敵1〜3/各役割/自動)
        └─ GitHub Actions turn.yml 起動
-            ├─ ガード: Issue作成者==リポジトリオーナー / turnラベル / concurrencyで直列化
-            └─ engine.turn_runner
-                 ├─ issue_parser: フォーム本文 → コマンドJSON(スロット語彙のみ)
+            ├─ ガード: Issue作成者==リポジトリオーナー / [TURN]タイトル / concurrencyで直列化
+            ├─ checkout: ref=デフォルトブランチ(イベントSHAは古い可能性があるため常に最新先端)
+            └─ engine.turn_runner(オープンな[TURN] Issueを番号順に全処理=取りこぼし回収)
+                 ├─ issue_parser: フォーム本文 → コマンドJSON(既知ラベルのみ区切り・初出優先)
                  ├─ save_io: save/state.json 読込(処理済みIssueなら冪等スキップ)
                  ├─ commands: 検証。不正手 → エラー返信+Issueクローズ+ターン不消費(セーブ無変更)
                  ├─ battle.resolve_turn(純粋関数): AGI順に行動解決 → 新状態+ログ
                  ├─ save_io: セーブ書込 / board: assets/board.svg 生成
-                 ├─ gitops: commit(save+assets) → SHA取得 → screen: READMEのボードURLをSHA付きに更新 → commit → push
+                 ├─ screen: README更新(ボードは相対URL+?v=t{ターン}-i{Issue}のキャッシュ回避クエリ)
+                 ├─ gitops: save+board+READMEを1コミット → push
+                 │    └─ push拒否時: fetch+reset --hardでリモート先端に戻し、ターン全体を再解決(最大3回)
                  └─ gh_api: 結果コメント投稿 → Issueクローズ
 README(ゲーム画面)に新しい戦況ボードが表示される
 ```

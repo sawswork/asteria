@@ -6,6 +6,7 @@ READMEの戦況ボードが表示する。不正手はここで検知し、エ�
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from .models import Battle, Member, Save
 
@@ -53,6 +54,12 @@ class InvalidMove:
     reason: str
 
 
+def normal_attack_effects(balance: dict[str, Any]) -> list[dict[str, Any]]:
+    """通常攻撃の効果(係数は balance.json に一元化)。検証と実行で共有する。"""
+    power = float(balance["damage"].get("normal_attack_power", 1.0))
+    return [{"tag": "damage", "power": power, "target": "enemy"}]
+
+
 def _primary_effect_kind(effects: list[dict]) -> str:
     """効果リストの主効果種別: "offense"(敵対象) / "friendly"(味方対象) / "neutral"。"""
     for e in effects:
@@ -66,20 +73,21 @@ def _primary_effect_kind(effects: list[dict]) -> str:
     return "neutral"
 
 
-def _effects_for_action(member: Member, action: str) -> list[dict]:
+def _effects_for_action(member: Member, action: str, balance: dict[str, Any]) -> list[dict]:
     if action in ABILITY_INDEX:
         return member.abilities[ABILITY_INDEX[action]].effects
     if action == ACTION_ULT:
         return member.ultimate.effects
     if action == ACTION_NORMAL:
-        return [{"tag": "damage", "power": 1.0, "target": "enemy"}]
+        return normal_attack_effects(balance)
     return []
 
 
 def validate_commands(
-    save: Save, battle: Battle, commands: dict[str, Command], ult_max: int
+    save: Save, battle: Battle, commands: dict[str, Command], balance: dict[str, Any]
 ) -> list[InvalidMove]:
     """戦闘開始時点の状態に対してコマンド一式を検証する。1つでも不正手があればターン不消費。"""
+    ult_max = int(balance["ult_gauge"]["max"])
     errors: list[InvalidMove] = []
     alive_enemy_count = sum(1 for e in battle.enemies if e.alive)
 
@@ -122,7 +130,7 @@ def validate_commands(
             continue
 
         # 対象の整合性チェック
-        kind = _primary_effect_kind(_effects_for_action(member, cmd.action))
+        kind = _primary_effect_kind(_effects_for_action(member, cmd.action, balance))
         if cmd.action == ACTION_WAIT:
             continue  # 待機は対象を無視
         if cmd.target in TARGET_ENEMIES:

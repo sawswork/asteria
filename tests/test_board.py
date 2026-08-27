@@ -47,6 +47,17 @@ def test_board_svg_victory_banner(battle_save, world, balance):
     assert "勝利" in svg
 
 
+def test_board_hides_taunt_lock_of_dead_holder(battle_save, world, balance):
+    tank = battle_save.member_by_role("tank")
+    battle_save.battle.taunt_holder_id = tank.id
+    battle_save.battle.taunt_turns_left = 2
+    svg_alive = build_board_svg(battle_save, world, balance)
+    assert "狙い固定" in svg_alive
+    tank.hp = 0  # 保持者死亡 → 敵AIはロックを無視するため表示も消す
+    svg_dead = build_board_svg(battle_save, world, balance)
+    assert "狙い固定" not in svg_dead
+
+
 def test_board_shows_ct_state(battle_save, world, balance):
     battle_save.member_by_role("attacker").abilities[0].ready_in = 2
     svg = build_board_svg(battle_save, world, balance)

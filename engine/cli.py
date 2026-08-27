@@ -21,13 +21,13 @@ from .save_io import DEFAULT_SEED, load_json, load_save, new_save, write_save
 DEFAULT_REPO = "OWNER/REPO"  # ローカル表示用のプレースホルダ(実機はGITHUB_REPOSITORYを使う)
 
 
-def _write_screen(save, world, balance, root: Path, repo: str, sha: str) -> None:
+def _write_screen(save, world, balance, root: Path, repo: str, cache_key: str) -> None:
     svg = board_mod.build_board_svg(save, world, balance)
     board_file = root / "assets/board.svg"
     board_file.parent.mkdir(parents=True, exist_ok=True)
     board_file.write_text(svg, encoding="utf-8")
     (root / "README.md").write_text(
-        screen.render_readme(save, world, repo, sha), encoding="utf-8"
+        screen.render_readme(save, world, repo, cache_key), encoding="utf-8"
     )
 
 
@@ -70,14 +70,14 @@ def main(argv: list[str] | None = None) -> int:
         for role, c in turn_input["commands"].items()
     }
     assert save.battle is not None
-    errors = validate_commands(save, save.battle, commands, int(balance["ult_gauge"]["max"]))
+    errors = validate_commands(save, save.battle, commands, balance)
     if errors:
         print("不正な手(ターン不消費):")
         for e in errors:
             print(f"  - {e.role}: {e.reason}")
         return 2
 
-    new, report = battle_mod.resolve_turn(save, commands, balance)
+    new, report = battle_mod.resolve_turn(save, commands, balance, world)
     for line in report.lines:
         print(line)
     summary = {

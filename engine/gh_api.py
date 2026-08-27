@@ -39,6 +39,27 @@ class GhApi:
                 time.sleep(2**attempt)
         raise RuntimeError(f"GitHub API {method} {path} failed: {last_error}")
 
+    def list_open_turn_issues(self, title_prefix: str) -> list[dict[str, Any]]:
+        """オープンなターンIssueを番号昇順で返す(PRは除外)。取りこぼしIssueの回収に使う。"""
+        issues: list[dict[str, Any]] = []
+        for page in range(1, 4):
+            batch = self._request(
+                "GET",
+                f"/repos/{self.repo_slug}/issues"
+                f"?state=open&sort=created&direction=asc&per_page=100&page={page}",
+            )
+            if not batch:
+                break
+            for it in batch:
+                if "pull_request" in it:
+                    continue
+                if str(it.get("title", "")).startswith(title_prefix):
+                    issues.append(it)
+            if len(batch) < 100:
+                break
+        issues.sort(key=lambda i: int(i["number"]))
+        return issues
+
     def post_comment(self, issue_number: int, body: str) -> None:
         self._request(
             "POST", f"/repos/{self.repo_slug}/issues/{issue_number}/comments", {"body": body}

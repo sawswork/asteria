@@ -10,7 +10,7 @@
 - [x] 敵AIルール層(ヘイト最大狙い・挑発ロック遵守)
 - [x] 仮パーティ4人(A/S/T/H)+固定敵1体の初期セーブ
 - [x] engine.cli(`python -m engine.cli --input fixtures/turn.json`)
-- [x] 戦況ボードSVG(自己完結・≤50KB)+README反映(SHA付きURL)
+- [x] 戦況ボードSVG(自己完結・≤50KB)+README反映(相対URL+キャッシュ回避クエリ)
 - [x] Issue Form(固定YAML・スロット語彙)
 - [x] turn.yml ワークフロー(concurrency直列化・オーナーチェック・最小permissions)
 - [x] 不正手のエラー返信+ターン不消費

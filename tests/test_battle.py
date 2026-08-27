@@ -112,9 +112,10 @@ def test_heal_restores_hp(battle_save, balance):
     hurt.hp = 40
     new, report = resolve_turn(battle_save, _cmds(healer=("アビ1", "自動")), balance)
     healed = new.member_by_role("attacker")
-    # 自動対象=HP割合最小のアタッカー。敵に殴られた分を差し引いても回復が上回るはず
+    # 自動対象=HP割合最小のアタッカー。回復(atk9×2.2×0.95〜1.05≒18〜21)は
+    # 敵の一撃(≒9〜11)を上回るので、回復が実際に効いていればHPは開始時の40より増えるはず
     assert any("星灯の癒し" in l for l in report.lines)
-    assert healed.hp > 40 - 20
+    assert healed.hp > 40
 
 
 def test_buff_applies_and_expires(battle_save, balance):
@@ -179,6 +180,46 @@ def test_start_battle_restores_party(world, balance, battle_save):
         assert m.buffs == []
     assert renewed.battle.active
     assert renewed.battle.turn == 1
+
+
+def test_taunt_cleared_when_holder_dies(battle_save, balance):
+    # タンクが挑発ロックを保持したまま倒れると、ロックは即時解除され敵はヘイト比較に戻る
+    tank = battle_save.member_by_role("tank")
+    battle_save.battle.taunt_holder_id = tank.id
+    battle_save.battle.taunt_turns_left = 2
+    tank.hp = 1
+    battle_save.battle.enemies[0].atk = 999
+    battle_save.member_by_role("attacker").hate = 9999
+    new, report = resolve_turn(battle_save, all_normal_commands(), balance)
+    # 敵はロック中のタンクを攻撃して倒す → ロック解除ログが出て状態もクリアされる
+    assert any("固定が解けた" in l for l in report.lines)
+    assert new.battle.taunt_holder_id is None
+    assert new.battle.taunt_turns_left == 0
+
+
+def test_midturn_victory_preserves_slower_members_resources(battle_save, balance):
+    # 敵が先に倒れた場合、まだ行動していないメンバーのゲージ・CTは消費されない
+    tank = battle_save.member_by_role("tank")  # AGI最下位=最後に行動
+    tank.ult_gauge = 100
+    battle_save.battle.enemies[0].hp = 1  # 先頭のアタッカーの一撃で決着
+    new, report = resolve_turn(battle_save, _cmds(tank=("奥義", "自動")), balance)
+    assert report.result == "victory"
+    assert new.member_by_role("tank").ult_gauge == 100
+    assert not any("不動の星砦" in l for l in report.lines)
+
+
+def test_start_battle_carries_over_ult_gauge(world, balance, battle_save):
+    battle_save.member_by_role("attacker").ult_gauge = 70
+    battle_save.battle.result = "victory"
+    battle_save.battle.active = False
+    renewed = start_battle(battle_save, world, balance)
+    assert renewed.member_by_role("attacker").ult_gauge == 70  # ゲージは戦闘間で持ち越す
+
+
+def test_ability_log_uses_world_ability_term(battle_save, balance, world):
+    _, report = resolve_turn(battle_save, _cmds(attacker=("アビ1", "自動")), balance, world)
+    term = world["power_system"]["ability_term"]
+    assert any(f"{term}「星走り」" in l for l in report.lines)
 
 
 def test_rng_counter_advances_and_recorded(battle_save, balance):

@@ -126,7 +126,7 @@ def _enemy_block(battle: Battle, save: Save, strong_every: int, y: float) -> lis
             parts.append(_text(620, ey + 34, hint, size=11, fill=ACCENT))
     if battle.taunt_turns_left > 0 and battle.taunt_holder_id:
         holder = save.member_by_id(battle.taunt_holder_id)
-        if holder:
+        if holder and holder.alive:  # 死亡した保持者のロックはエンジン側で解除される(表示も一致させる)
             parts.append(
                 _text(340, y + 54, f"🔒 狙い固定 → {holder.name}(残り{battle.taunt_turns_left}ターン)", size=11, fill=GAUGE)
             )

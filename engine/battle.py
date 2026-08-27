@@ -26,6 +26,7 @@ from .commands import (
     TARGET_AUTO,
     TARGET_ENEMIES,
     Command,
+    normal_attack_effects,
 )
 from .models import Battle, Buff, Enemy, Member, Save
 from .rng import Rng
@@ -85,6 +86,7 @@ class _Ctx:
     balance: dict[str, Any]
     rng: Rng
     report: TurnReport
+    ability_term: str = "アビリティ"  # 表示用語。world.json の power_system.ability_term で上書き
 
 
 def _log(ctx: _Ctx, line: str) -> None:
@@ -164,7 +166,7 @@ def _apply_member_damage(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_t
 def _apply_heal(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_target: str, source_name: str) -> None:
     b = ctx.balance["heal"]
     variance = ctx.rng.uniform(float(b["variance_min"]), float(b["variance_max"]))
-    amount = max(1, round(actor.eff_atk() * float(effect["power"]) * variance))
+    amount = max(int(b.get("min_heal", 1)), round(actor.eff_atk() * float(effect["power"]) * variance))
     targets: list[Member]
     if effect.get("target") == "party":
         targets = [m for m in ctx.save.party if m.alive]
@@ -233,9 +235,7 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
         _log(ctx, f"{member.name}は力を溜めた(ゲージ+{int(g['wait'])})。")
         return
     if cmd.action == ACTION_NORMAL:
-        _apply_member_effects(
-            ctx, member, [{"tag": "damage", "power": 1.0, "target": "enemy"}], cmd.target, "攻撃"
-        )
+        _apply_member_effects(ctx, member, normal_attack_effects(ctx.balance), cmd.target, "攻撃")
         _gain_gauge(ctx, member, int(g["normal_attack"]))
         return
     if cmd.action in ABILITY_INDEX:
@@ -244,7 +244,9 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
             _log(ctx, f"{member.name}の{ability.name}はまだ使えない!")
             return
         ability.ready_in = ability.ct
-        _apply_member_effects(ctx, member, ability.effects, cmd.target, f"星技「{ability.name}」")
+        _apply_member_effects(
+            ctx, member, ability.effects, cmd.target, f"{ctx.ability_term}「{ability.name}」"
+        )
         _gain_gauge(ctx, member, int(g["ability"]))
         return
     if cmd.action == ACTION_ULT:
@@ -289,6 +291,18 @@ def _enemy_act(ctx: _Ctx, enemy: Enemy) -> None:
     _check_end(ctx)
 
 
+def _clear_dead_taunt(ctx: _Ctx) -> None:
+    """挑発保持者が倒れたらロックを即時解除する(敵AI・ボード表示と状態を一致させる)。"""
+    if not ctx.battle.taunt_holder_id:
+        return
+    holder = ctx.save.member_by_id(ctx.battle.taunt_holder_id)
+    if holder is None or not holder.alive:
+        ctx.battle.taunt_holder_id = None
+        ctx.battle.taunt_turns_left = 0
+        if holder is not None and not ctx.battle.result:
+            _log(ctx, f"{holder.name}が倒れ、敵の狙いの固定が解けた!")
+
+
 def _end_of_turn(ctx: _Ctx) -> None:
     for m in ctx.save.party:
         for a in m.abilities:
@@ -308,10 +322,16 @@ def _end_of_turn(ctx: _Ctx) -> None:
     ctx.battle.turn += 1
 
 
-def resolve_turn(save: Save, commands: dict[str, Command], balance: dict[str, Any]) -> tuple[Save, TurnReport]:
+def resolve_turn(
+    save: Save,
+    commands: dict[str, Command],
+    balance: dict[str, Any],
+    world: dict[str, Any] | None = None,
+) -> tuple[Save, TurnReport]:
     """1ターンを解決する。save は変更せず、新しい Save を返す。
 
     前提: save.battle が active であり、commands は validate_commands を通過している。
+    world は表示用語(power_system)の参照にのみ使う。数値には一切影響しない。
     """
     if save.battle is None or not save.battle.active:
         raise ValueError("battle is not active")
@@ -320,7 +340,10 @@ def resolve_turn(save: Save, commands: dict[str, Command], balance: dict[str, An
     assert battle is not None
     rng = Rng(new.rng_seed, new.rng_counter)
     report = TurnReport(turn=battle.turn)
-    ctx = _Ctx(save=new, battle=battle, balance=balance, rng=rng, report=report)
+    ability_term = str(((world or {}).get("power_system") or {}).get("ability_term") or "アビリティ")
+    ctx = _Ctx(
+        save=new, battle=battle, balance=balance, rng=rng, report=report, ability_term=ability_term
+    )
 
     _log(ctx, f"—— ターン{battle.turn} ——")
 
@@ -345,6 +368,7 @@ def resolve_turn(save: Save, commands: dict[str, Command], balance: dict[str, An
             if cmd is None:
                 continue
             _member_act(ctx, actor, cmd)
+        _clear_dead_taunt(ctx)
 
     if not battle.result:
         _end_of_turn(ctx)
