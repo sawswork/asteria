@@ -18,5 +18,8 @@ jobs:
           python-version: "3.12"
       - run: pip install pytest jsonschema Pillow numpy
       - run: python -m pytest -q
-      - name: CLI smoke (dry run)
-        run: python -m engine.cli --input fixtures/turn.json
+      - name: CLI smoke (fresh save, dry run)
+        # ライブのセーブ状態(CT等)に依存しないよう、一時セーブで実行する
+        run: |
+          python -m engine.cli --reset --save /tmp/ci-save --repo smoke/smoke
+          python -m engine.cli --input fixtures/turn.json --save /tmp/ci-save --mock

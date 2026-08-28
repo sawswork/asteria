@@ -53,6 +53,8 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python -m engine.turn_runner --event-path "$GITHUB_EVENT_PATH"
-      - name: Smoke run (manual dispatch, dry run)
+      - name: Smoke run (manual dispatch, fresh save, dry run)
         if: github.event_name == 'workflow_dispatch'
-        run: python -m engine.cli --input fixtures/turn.json --mock
+        run: |
+          python -m engine.cli --reset --save /tmp/ci-save --repo smoke/smoke
+          python -m engine.cli --input fixtures/turn.json --save /tmp/ci-save --mock
