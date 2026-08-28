@@ -60,6 +60,33 @@ class GhApi:
         issues.sort(key=lambda i: int(i["number"]))
         return issues
 
+    def list_game_issues(self, title_prefix: str | tuple[str, ...]) -> list[dict[str, Any]]:
+        """開閉問わず対象Issueを番号昇順で返す(年代記の復元に使う)。"""
+        issues: list[dict[str, Any]] = []
+        for page in range(1, 11):
+            batch = self._request(
+                "GET",
+                f"/repos/{self.repo_slug}/issues"
+                f"?state=all&sort=created&direction=asc&per_page=100&page={page}",
+            )
+            if not batch:
+                break
+            for it in batch:
+                if "pull_request" in it:
+                    continue
+                if str(it.get("title", "")).startswith(title_prefix):
+                    issues.append(it)
+            if len(batch) < 100:
+                break
+        issues.sort(key=lambda i: int(i["number"]))
+        return issues
+
+    def list_comments(self, issue_number: int) -> list[dict[str, Any]]:
+        got = self._request(
+            "GET", f"/repos/{self.repo_slug}/issues/{issue_number}/comments?per_page=100"
+        )
+        return list(got) if isinstance(got, list) else []
+
     def post_comment(self, issue_number: int, body: str) -> None:
         self._request(
             "POST", f"/repos/{self.repo_slug}/issues/{issue_number}/comments", {"body": body}

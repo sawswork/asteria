@@ -51,6 +51,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--process-assets", action="store_true", help="assets/raw/ を処理してシーンを再合成する")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--mock", action="store_true", help="AI応答をfixturesの固定JSONにする(M1では未使用)")
+    parser.add_argument(
+        "--backfill-chronicle", action="store_true",
+        help="過去のIssueコメントから年代記の章を復元する(既存の章は上書きしない)",
+    )
     args = parser.parse_args(argv)
 
     root = Path(args.root)
@@ -62,6 +66,35 @@ def main(argv: list[str] | None = None) -> int:
         write_save(save, root / args.save)
         _write_screen(save, world, balance, root, args.repo, DEFAULT_CACHE_KEY)
         print(f"初期セーブを生成しました: {args.save} (seed={args.seed})")
+        return 0
+
+    if args.backfill_chronicle:
+        import os
+
+        from . import backfill as backfill_mod
+        from .gh_api import GhApi
+        from .turn_runner import TITLE_PREFIXES
+
+        token = os.environ.get("GITHUB_TOKEN", "")
+        if not token:
+            print("GITHUB_TOKEN が必要です(Actions の workflow_dispatch から実行してください)")
+            return 2
+        gh = GhApi(args.repo, token)
+        replies: list[backfill_mod.Reply] = []
+        for issue in gh.list_game_issues(TITLE_PREFIXES):
+            number = int(issue["number"])
+            for comment in gh.list_comments(number):
+                body = str(comment.get("body", ""))
+                if body.strip():
+                    replies.append(
+                        backfill_mod.Reply(number=number, title=str(issue.get("title", "")), body=body)
+                    )
+                    break  # エンジンの最初の返信がその Issue の結果
+        chapters = backfill_mod.rebuild(replies)
+        written = backfill_mod.write_chapters(root, chapters)
+        print(f"返信{len(replies)}件から{len(chapters)}章を組み立て、{len(written)}章を書き出しました")
+        for name in written:
+            print(f"  - {name}")
         return 0
 
     if args.process_assets:
