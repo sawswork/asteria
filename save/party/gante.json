@@ -9,7 +9,7 @@
   "def": 15,
   "agi": 6,
   "ult_gauge": 100,
-  "hate": 193.0,
+  "hate": 198.0,
   "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
@@ -22,10 +22,10 @@
   },
   "slot_state": {
     "ability1": {
-      "ready_in": 1
+      "ready_in": 0
     },
     "ability2": {
-      "ready_in": 1
+      "ready_in": 0
     },
     "ability3": {
       "ready_in": 0
