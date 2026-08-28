@@ -68,7 +68,8 @@ def test_nemesis_enemy_rebuilds_fresh_but_remembers(fresh_save, world, balance):
     assert rebuilt is not None
     foe, name, intro = rebuilt
     assert foe.hp == foe.max_hp and foe.buffs == [] and foe.stunned_turns == 0
-    assert foe.evolutions_used == 1 and foe.hp_evolution_triggered
+    assert foe.evolutions_used == 1  # 進化の記憶は残る
+    assert not foe.hp_evolution_triggered  # HP契機は再戦ごとに開き直す(枠が残っていれば再進化)
     assert foe.weaknesses == [{"field": "雷紋", "mult": 1.5}]
     assert "evolved" in foe.actions
     assert name.startswith("宿敵・")
