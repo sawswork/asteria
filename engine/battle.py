@@ -154,6 +154,11 @@ class _Ctx:
     current_amp: float = 1.0  # 実行中アクションの増幅(共鳴)
 
 
+def _term(ctx: _Ctx, key: str, default: str = "") -> str:
+    """世界固有の語はworld.jsonのsystem_termsから引く(エンジンに固有名詞を書かない不変則)。"""
+    return str((ctx.world.get("system_terms") or {}).get(key, default))
+
+
 def _log(ctx: _Ctx, line: str) -> None:
     ctx.report.lines.append(line)
     ctx.battle.recent_log.append(line)
@@ -189,7 +194,8 @@ def _field_and_chain_mult(
             _log(ctx, str(reaction.get("log", f"【{reaction.get('name', '連鎖')}】が弾けた!")))
             break
         else:
-            _attach_field(ctx, target, incoming_field, turns=2, quiet=True)
+            carry = int(ctx.balance.get("field", {}).get("carry_turns", 2))
+            _attach_field(ctx, target, incoming_field, turns=carry, quiet=True)
         # 歪み弱点: 該当タグを添えた攻撃は倍率増(敵のみ)
         if isinstance(target, Enemy):
             for w in target.weaknesses:
@@ -340,7 +346,8 @@ def _check_pr_attack(ctx: _Ctx) -> None:
                 battle.pr_attack = {"status": "pending", "enemy_id": e.id}
                 _log(
                     ctx,
-                    f"⚠ {e.name}は星の理を歪める禁忌の詠唱を始めた——PRを封じるか、打ち破るしかない!",
+                    f"⚠ {e.name}は{_term(ctx, 'world_order')}を歪める禁忌の詠唱を始めた"
+                    "——PRを封じるか、打ち破るしかない!",
                 )
                 break
         return
@@ -353,7 +360,7 @@ def _check_pr_attack(ctx: _Ctx) -> None:
             _log(ctx, f"💥 詠唱中に合計{dealt}ダメージ! 禁忌の詠唱を打ち破った!")
         elif battle.turn >= deadline:
             pr["status"] = "deadline"
-            _log(ctx, "🕳 詠唱が完成へ向かう——PRが閉じられていなければ、星の理が歪む……")
+            _log(ctx, f"🕳 詠唱が完成へ向かう——PRが閉じられていなければ、{_term(ctx, 'world_order')}が歪む……")
         else:
             pr["break_need"] = need - dealt  # ボード表示用(残り必要ダメージ)
             _log(
@@ -373,7 +380,7 @@ def _resolve_pending_evolutions(ctx: _Ctx) -> None:
         if not e.alive or e.evolution_pending is None:
             continue
         spec = ctx.evolution_overrides.get(e.id) or {}
-        evo_name = str(spec.get("name") or "本能の覚醒")[:14]
+        evo_name = str(spec.get("name") or _term(ctx, "evolution_fallback_name", "覚醒"))[:14]
         action = spec.get("action")
         if not (
             isinstance(action, dict)
@@ -381,7 +388,11 @@ def _resolve_pending_evolutions(ctx: _Ctx) -> None:
             and isinstance(action.get("effects"), list)
             and action["effects"]
         ):
-            action = {"name": "覚醒の一撃", "effects": [{"tag": "damage", "power": 1.8, "target": "enemy"}]}
+            power = float(ev.get("fallback_action_power", 1.8))
+            action = {
+                "name": _term(ctx, "evolution_fallback_action", "渾身の一撃"),
+                "effects": [{"tag": "damage", "power": power, "target": "enemy"}],
+            }
         e.atk = max(1, round(e.atk * float(ev.get("bonus_mult", 1.3))))
         e.actions["evolved"] = {"name": str(action["name"])[:14], "effects": list(action["effects"])}
         weak_note = ""
@@ -800,7 +811,8 @@ def _apply_enemy_effects(ctx: _Ctx, enemy: Enemy, action: dict[str, Any], target
             _log(ctx, f"{enemy.name}の{name}! {enemy.name}は力を高めた!")
         elif tag == "field":  # 標的に残留タグを付与(チェイン反応の素材)
             turns = max(1, min(3, int(effect.get("turns", 2))))
-            _attach_field(ctx, target, str(effect.get("name", "残滓"))[:8] or "残滓", turns)
+            default_tag = _term(ctx, "residue_default", "残滓")
+            _attach_field(ctx, target, str(effect.get("name") or default_tag)[:8], turns)
     _check_end(ctx)
 
 

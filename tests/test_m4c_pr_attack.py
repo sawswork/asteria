@@ -162,17 +162,18 @@ def test_pending_without_gh_simulates(tmp_path, battle_save, balance):
     assert notes
 
 
-def test_deadline_open_pr_force_merges_and_applies(tmp_path, battle_save, balance):
+def test_deadline_open_pr_force_merges_and_applies(tmp_path, battle_save, balance, world):
     enemy = _make_boss(battle_save)
     battle_save.battle.pr_attack = {
         "status": "deadline", "enemy_id": enemy.id, "pr_number": 77, "branch": "boss-attack-x",
     }
     gh = FakePrGhApi()
-    notes = _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
+    notes = _process_pr_attack(battle_save, gh, REPO, tmp_path, balance, world)
     assert gh.merged == [77]
     assert battle_save.battle.pr_attack["status"] == "merged"
     assert (tmp_path / OVERRIDE_PATH).exists()
-    assert any("星の理が歪んだ" in n for n in notes)
+    order = world["system_terms"]["world_order"]  # 世界固有の語はworld.jsonから来る
+    assert any(f"{order}が歪んだ" in n for n in notes)
     assert any("歪んだ" in line for line in battle_save.journal)
 
 
@@ -439,3 +440,23 @@ def test_broken_close_failure_keeps_state_for_retry(tmp_path, battle_save, balan
     gh.raise_on_comment = True
     _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
     assert battle_save.battle.pr_attack["status"] == "broken"
+
+
+def test_override_allow_list_blocks_permanent_changes(tmp_path):
+    """battle_override.json は戦闘スコープの係数だけを上書きでき、恒久的な進行は書き換えられない。"""
+    import json as _json
+
+    root = make_root(tmp_path)
+    (root / OVERRIDE_PATH).write_text(
+        _json.dumps({"overrides": {
+            "damage": {"def_coeff": 0.1},
+            "leveling": {"xp_curve_base": 1},
+            "spell_budget": {"base": 9999},
+        }}),
+        encoding="utf-8",
+    )
+    base = load_json(root / "world/balance.json")
+    merged = _merged_balance(root)
+    assert merged["damage"]["def_coeff"] == 0.1  # 許可された戦闘係数は効く
+    assert merged["leveling"] == base["leveling"]  # 恒久的な進行は無視される
+    assert merged["spell_budget"] == base["spell_budget"]
