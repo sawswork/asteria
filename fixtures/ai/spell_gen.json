@@ -1,0 +1,6 @@
+{
+  "name": "星穿ちの牙",
+  "desc": "星光を一点に集中して穿つ刺突。威力1.4倍",
+  "ct": 2,
+  "effects": [{"tag": "damage", "power": 1.4, "target": "enemy"}]
+}

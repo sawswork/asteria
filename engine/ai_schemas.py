@@ -1,0 +1,142 @@
+"""AI応答のJSONスキーマ。検証を通過した応答だけ採用する(不変の制約)。"""
+from __future__ import annotations
+
+from typing import Any
+
+from .spells import SPELL_SCHEMA
+
+# 技生成: 技そのもの(spells.SPELL_SCHEMA)を返させる
+SPELL_GEN_SCHEMA: dict[str, Any] = SPELL_SCHEMA
+
+# 技アップデート: 進化方向3案
+SPELL_UPDATE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "options": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "maxLength": 40},
+                    "spell": SPELL_SCHEMA,
+                },
+                "required": ["direction", "spell"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["options"],
+    "additionalProperties": False,
+}
+
+_ENEMY_ACTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 14},
+        "effects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "tag": {"enum": ["damage", "dot", "debuff", "stun", "buff"]},
+                    "power": {"type": "number", "minimum": 0.3, "maximum": 2.5},
+                    "hits": {"type": "integer", "minimum": 1, "maximum": 3},
+                    "stat": {"enum": ["atk", "def", "agi"]},
+                    "mult": {"type": "number", "minimum": 0.5, "maximum": 1.6},
+                    "turns": {"type": "integer", "minimum": 1, "maximum": 3},
+                    "target": {"enum": ["enemy", "self"]},
+                },
+                "required": ["tag", "target"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["name", "effects"],
+    "additionalProperties": False,
+}
+
+# 敵生成
+ENEMY_GEN_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 14},
+        "title": {"type": "string", "maxLength": 20},
+        "personality": {"enum": ["狡猾", "凶暴", "臆病", "冷酷", "誇り高い"]},
+        "tier": {"enum": ["minion", "standard", "elite", "boss"]},
+        "intelligent": {"type": "boolean"},
+        "stats": {
+            "type": "object",
+            "properties": {
+                "hp": {"type": "integer", "minimum": 1},
+                "atk": {"type": "integer", "minimum": 1},
+                "def": {"type": "integer", "minimum": 0},
+                "agi": {"type": "integer", "minimum": 1},
+            },
+            "required": ["hp", "atk", "def", "agi"],
+            "additionalProperties": False,
+        },
+        "actions": {
+            "type": "object",
+            "properties": {
+                "normal": _ENEMY_ACTION_SCHEMA,
+                "special": _ENEMY_ACTION_SCHEMA,
+            },
+            "required": ["normal", "special"],
+            "additionalProperties": False,
+        },
+        "intro": {"type": "string", "maxLength": 80},
+    },
+    "required": ["name", "personality", "tier", "intelligent", "stats", "actions", "intro"],
+    "additionalProperties": False,
+}
+
+# ターン処理(知能層の敵判断+ログ味付け。1ターン1回のAI呼び出しに同梱)
+ENEMY_TURN_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "enemy_commands": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "enemy_id": {"type": "string"},
+                    "action_key": {"type": "string", "maxLength": 20},
+                    "target_role": {"enum": ["attacker", "support", "tank", "healer"]},
+                    "line": {"type": "string", "maxLength": 60},
+                },
+                "required": ["enemy_id", "action_key", "target_role"],
+                "additionalProperties": False,
+            },
+        },
+        "flavor": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {"type": "string", "maxLength": 70},
+        },
+        "fx": {"type": "array", "maxItems": 3, "items": {"type": "string", "maxLength": 40}},
+    },
+    "required": ["enemy_commands"],
+    "additionalProperties": False,
+}
+
+# 勧誘(キャラ生成。数値はエンジンが役割テンプレから決める=AIは名前・人格・技のみ)
+RECRUIT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 10},
+        "title": {"type": "string", "maxLength": 16},
+        "role": {"enum": ["attacker", "support", "tank", "healer"]},
+        "personality": {"type": "string", "maxLength": 30},
+        "background": {"type": "string", "maxLength": 120},
+        "battle_cry": {"type": "string", "maxLength": 40},
+        "abilities": {"type": "array", "minItems": 3, "maxItems": 3, "items": SPELL_SCHEMA},
+        "ultimate": SPELL_SCHEMA,
+    },
+    "required": ["name", "role", "personality", "background", "abilities", "ultimate"],
+    "additionalProperties": False,
+}

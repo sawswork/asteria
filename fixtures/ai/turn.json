@@ -1,0 +1,11 @@
+{
+  "enemy_commands": [
+    {
+      "enemy_id": "enemy_gen1",
+      "action_key": "normal",
+      "target_role": "healer",
+      "line": "まず癒し手から狩る"
+    }
+  ],
+  "flavor": ["影が、祈り手の背後で膨らんだ。"]
+}

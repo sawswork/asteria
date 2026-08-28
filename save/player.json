@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "level": 1,
+  "xp": 0,
+  "spell_tokens": 0,
+  "active_party": [
+    "sora",
+    "ryuno",
+    "gante",
+    "mio"
+  ],
+  "roster_extra": []
+}

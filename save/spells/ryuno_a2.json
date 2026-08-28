@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "id": "ryuno_a2",
+  "kind": "ability",
+  "owner": "ryuno",
+  "name": "星の護歌",
+  "effects": [
+    {
+      "tag": "buff",
+      "stat": "def",
+      "mult": 1.3,
+      "turns": 2,
+      "target": "party"
+    }
+  ],
+  "desc": "2ターンの間、全員の防御1.3倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 3
+}

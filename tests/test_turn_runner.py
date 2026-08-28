@@ -265,7 +265,7 @@ def test_free_text_gets_m2_notice(tmp_path):
     root = make_root(tmp_path)
     gh = FakeGhApi()
     run(root, make_issue(1, body_from(all_normal(), free_text="タンクで守って")), gh=gh)
-    assert "M2" in gh.comments[0][1]
+    assert "自由記述の解釈" in gh.comments[0][1]  # 未対応の明記
 
 
 # ---- git統合(ローカルbareリポジトリ) ----------------------------------
@@ -298,7 +298,7 @@ def test_git_single_commit_contains_save_board_readme(tmp_path):
     assert {"save/state.json", "assets/board.svg", "README.md"} <= set(files)
     tree = _git("ls-tree", "-r", "--name-only", "HEAD", cwd=root).splitlines()
     assert {"save/player.json", "save/party/sora.json", "save/spells/sora_a1.json", "save/log.md"} <= set(tree)
-    assert "?v=t1-i1" in (root / "README.md").read_text(encoding="utf-8")
+    assert "?v=i1-a0" in (root / "README.md").read_text(encoding="utf-8")
     # pushされている(originの先端=ローカルHEAD)
     assert _git("rev-parse", "HEAD", cwd=root) == _git("rev-parse", "main", cwd=origin)
 

@@ -1,0 +1,34 @@
+{
+  "options": [
+    {
+      "direction": "一撃の重さを求める",
+      "spell": {
+        "name": "星走り・宙貫",
+        "desc": "踏み込みを深めた刺突。威力1.9倍",
+        "ct": 3,
+        "effects": [{"tag": "damage", "power": 1.9, "target": "enemy"}]
+      }
+    },
+    {
+      "direction": "回転率を上げる",
+      "spell": {
+        "name": "星走り・迅",
+        "desc": "型を簡素化した速い刺突。威力1.3倍",
+        "ct": 1,
+        "effects": [{"tag": "damage", "power": 1.3, "target": "enemy"}]
+      }
+    },
+    {
+      "direction": "傷跡に星の残滓を残す",
+      "spell": {
+        "name": "星走り・残光",
+        "desc": "威力1.2倍+継続ダメージ",
+        "ct": 3,
+        "effects": [
+          {"tag": "damage", "power": 1.2, "target": "enemy"},
+          {"tag": "dot", "power": 0.3, "turns": 2, "target": "enemy"}
+        ]
+      }
+    }
+  ]
+}

@@ -41,9 +41,8 @@ class TurnReport:
     result: Optional[str] = None  # None | "victory" | "defeat"
 
 
-def start_battle(save: Save, world: dict[str, Any], balance: dict[str, Any]) -> Save:
-    """world定義の初期戦闘を開始した新しいSaveを返す。パーティは拠点帰還扱いで全快する。"""
-    new = copy.deepcopy(save)
+def first_battle_enemies(world: dict[str, Any]) -> tuple[list[Enemy], str, str]:
+    """world定義の最初の戦闘(固定データ)。(敵リスト, 戦闘名, 登場ログ)。"""
     spec = world["first_battle"]
     enemies: list[Enemy] = []
     for enemy_id in spec["enemy_ids"]:
@@ -61,20 +60,42 @@ def start_battle(save: Save, world: dict[str, Any], balance: dict[str, Any]) -> 
                 actions=dict(e["actions"]),
             )
         )
+    return enemies, str(spec["battle_name"]), str(spec.get("intro", ""))
+
+
+def start_battle(
+    save: Save,
+    world: dict[str, Any],
+    balance: dict[str, Any],
+    enemies: list[Enemy] | None = None,
+    battle_name: str | None = None,
+    intro: str | None = None,
+) -> Save:
+    """新しい戦闘を開始したSaveを返す。enemies省略時はworld定義の初期戦闘。
+
+    パーティは拠点帰還扱いで全快する(奥義ゲージのみ持ち越し。DECISIONS.md参照)。
+    """
+    new = copy.deepcopy(save)
+    if enemies is None:
+        enemies, battle_name, intro = first_battle_enemies(world)
+    else:
+        enemies = copy.deepcopy(enemies)
     initial_hate = float(balance["hate"]["initial"])
     for m in new.party:
         m.hp = m.max_hp
         m.hate = initial_hate
         m.buffs = []
+        m.shield = 0
+        m.stunned_turns = 0
+        m.dots = []
         for a in m.abilities:
             a.ready_in = 0
-        # 奥義ゲージは前戦闘から持ち越す(DECISIONS.md参照)
     new.battle = Battle(
         active=True,
-        name=str(spec["battle_name"]),
+        name=str(battle_name or "遭遇戦"),
         turn=1,
         enemies=enemies,
-        recent_log=[str(spec.get("intro", ""))] if spec.get("intro") else [],
+        recent_log=[intro] if intro else [],
     )
     return new
 
@@ -87,6 +108,7 @@ class _Ctx:
     rng: Rng
     report: TurnReport
     ability_term: str = "アビリティ"  # 表示用語。world.json の power_system.ability_term で上書き
+    enemy_overrides: dict[str, enemy_ai.EnemyDecision] = field(default_factory=dict)  # 知能層の判断
 
 
 def _log(ctx: _Ctx, line: str) -> None:
@@ -431,6 +453,7 @@ def _enemy_act(ctx: _Ctx, enemy: Enemy) -> None:
         ctx.save.party,
         ctx.rng,
         int(ctx.balance["enemy"]["strong_attack_every"]),
+        override=ctx.enemy_overrides.get(enemy.id),
     )
     if decision is None:
         return
@@ -440,6 +463,8 @@ def _enemy_act(ctx: _Ctx, enemy: Enemy) -> None:
     action = enemy.actions[decision.action_key]
     if decision.line:
         _log(ctx, f"{enemy.name}「{decision.line}」")
+    if decision.lock_forced:
+        _log(ctx, f"{enemy.name}は狙いを変えようとしたが、挑発から逃れられない!")
     _apply_enemy_effects(ctx, enemy, action, target)
 
 
@@ -533,11 +558,13 @@ def resolve_turn(
     commands: dict[str, Command],
     balance: dict[str, Any],
     world: dict[str, Any] | None = None,
+    enemy_overrides: dict[str, enemy_ai.EnemyDecision] | None = None,
 ) -> tuple[Save, TurnReport]:
     """1ターンを解決する。save は変更せず、新しい Save を返す。
 
     前提: save.battle が active であり、commands は validate_commands を通過している。
     world は表示用語(power_system)の参照にのみ使う。数値には一切影響しない。
+    enemy_overrides は知能層AIの判断(enemy_id→EnemyDecision)。正当性は enemy_ai が検証する。
     """
     if save.battle is None or not save.battle.active:
         raise ValueError("battle is not active")
@@ -548,7 +575,13 @@ def resolve_turn(
     report = TurnReport(turn=battle.turn)
     ability_term = str(((world or {}).get("power_system") or {}).get("ability_term") or "アビリティ")
     ctx = _Ctx(
-        save=new, battle=battle, balance=balance, rng=rng, report=report, ability_term=ability_term
+        save=new,
+        battle=battle,
+        balance=balance,
+        rng=rng,
+        report=report,
+        ability_term=ability_term,
+        enemy_overrides=dict(enemy_overrides or {}),
     )
 
     _log(ctx, f"—— ターン{battle.turn} ——")

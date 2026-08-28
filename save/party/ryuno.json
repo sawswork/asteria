@@ -1,0 +1,34 @@
+{
+  "id": "ryuno",
+  "role": "support",
+  "name": "リュノ",
+  "title": "星詠み",
+  "max_hp": 88,
+  "hp": 88,
+  "atk": 10,
+  "def": 9,
+  "agi": 12,
+  "ult_gauge": 100,
+  "hate": 45.0,
+  "buffs": [],
+  "shield": 0,
+  "stunned_turns": 0,
+  "dots": [],
+  "slots": {
+    "ability1": "ryuno_a1",
+    "ability2": "ryuno_a2",
+    "ability3": "ryuno_a3",
+    "ultimate": "ryuno_ult"
+  },
+  "slot_state": {
+    "ability1": {
+      "ready_in": 0
+    },
+    "ability2": {
+      "ready_in": 0
+    },
+    "ability3": {
+      "ready_in": 0
+    }
+  }
+}

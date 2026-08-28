@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "id": "gante_ult",
+  "kind": "ultimate",
+  "owner": "gante",
+  "name": "不動の星砦",
+  "effects": [
+    {
+      "tag": "buff",
+      "stat": "def",
+      "mult": 1.6,
+      "turns": 2,
+      "target": "self"
+    },
+    {
+      "tag": "taunt",
+      "target": "self"
+    },
+    {
+      "tag": "hate",
+      "amount": 40,
+      "target": "self"
+    }
+  ],
+  "desc": "防御1.6倍+挑発ロック+大ヘイト",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 0
+}

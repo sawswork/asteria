@@ -1,0 +1,34 @@
+{
+  "id": "sora",
+  "role": "attacker",
+  "name": "ソラ",
+  "title": "星剣士",
+  "max_hp": 95,
+  "hp": 84,
+  "atk": 16,
+  "def": 8,
+  "agi": 14,
+  "ult_gauge": 0,
+  "hate": 156.0,
+  "buffs": [],
+  "shield": 0,
+  "stunned_turns": 0,
+  "dots": [],
+  "slots": {
+    "ability1": "sora_a1",
+    "ability2": "sora_a2",
+    "ability3": "sora_a3",
+    "ultimate": "sora_ult"
+  },
+  "slot_state": {
+    "ability1": {
+      "ready_in": 0
+    },
+    "ability2": {
+      "ready_in": 0
+    },
+    "ability3": {
+      "ready_in": 0
+    }
+  }
+}

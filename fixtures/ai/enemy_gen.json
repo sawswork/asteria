@@ -1,0 +1,19 @@
+{
+  "name": "影喰いの豹",
+  "title": "闇に潜む牙",
+  "personality": "狡猾",
+  "tier": "standard",
+  "intelligent": true,
+  "stats": {"hp": 240, "atk": 14, "def": 10, "agi": 11},
+  "actions": {
+    "normal": {"name": "闇爪", "effects": [{"tag": "damage", "power": 1.0, "target": "enemy"}]},
+    "special": {
+      "name": "影の牙",
+      "effects": [
+        {"tag": "damage", "power": 1.1, "target": "enemy"},
+        {"tag": "dot", "power": 0.5, "turns": 2, "target": "enemy"}
+      ]
+    }
+  },
+  "intro": "星明かりの届かぬ茂みから、豹の形をした影が滑り出た。"
+}

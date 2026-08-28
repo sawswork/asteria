@@ -7,7 +7,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 🏆 直前の戦い「星蝕の仔狼との遭遇」に**勝利**! 次のターン送信で新しい戦いが始まる。
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード](assets/board.svg?v=t8-i9)
+![戦況ボード](assets/board.svg)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
@@ -16,8 +16,11 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 |---|---|
 | ▶ **[ターンを入力する](https://github.com/sawswork/asteria/issues/new?template=turn.yml)** | 4人の行動と対象を選んで送信(1フォーム=1ターン) |
 | ⚡ **[全員通常攻撃(1タップ)](https://github.com/sawswork/asteria/issues/new?template=turn.yml&attacker_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&attacker_target=%E8%87%AA%E5%8B%95&support_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&support_target=%E8%87%AA%E5%8B%95&tank_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&tank_target=%E8%87%AA%E5%8B%95&healer_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&healer_target=%E8%87%AA%E5%8B%95)** | 全員「通常攻撃/自動」が入力済みのフォームが開く |
+| ✨ **[技生成の儀式](https://github.com/sawswork/asteria/issues/new?template=generate.yml)** | 生成権(残り**0**)を使い、詠唱文から新しい技を紡ぐ |
+| 🔮 **[技アップデート](https://github.com/sawswork/asteria/issues/new?template=update.yml)** | 使い込んだ技の進化3案から選ぶ |
 
 送信後、数十秒でこのページのボードが更新される(結果はIssueにも返信される)。
+現在: **Lv1**(XP 0)/ 技生成権 **0** / 控えメンバー 0人
 
 ## 📖 遊び方
 

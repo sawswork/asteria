@@ -1,0 +1,41 @@
+name: 🔮 技アップデート
+description: 使い込んだ技の進化方向3案を見て、1つ選んで進化させる(2段階)
+title: "[UPDATE] 技アップデート"
+labels: ["turn"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        手順: ①「提案を見る」で送信 → 返信で3案が届く → ②同じメンバー・スロットで「案1〜3」を選んで再送信。
+        予算は現レベル+使い込みボーナス(使用回数・撃破数)。戦闘中は行えません。
+  - type: dropdown
+    id: member
+    attributes:
+      label: 対象メンバー
+      options: ["アタッカー", "サポート", "タンク", "ヒーラー"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: slot
+    attributes:
+      label: スロット
+      options: ["アビ1", "アビ2", "アビ3", "奥義"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: choice
+    attributes:
+      label: 選択
+      options: ["提案を見る", "案1", "案2", "案3"]
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: direction
+    attributes:
+      label: 方向性(任意)
+      description: 「提案を見る」時のみ使用。例「もっと素早く連発したい」「範囲攻撃に育てたい」
+    validations:
+      required: false

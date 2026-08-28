@@ -3,6 +3,8 @@
   "world_id": "asteria",
   "world_name": "アステリア",
   "tagline": "砕けた星々の欠片が空を巡る世界",
+  "worldview": "かつて夜空を統べた大星が砕け、その欠片(星片)が大地と生き物に宿った世界。星片は力の源だが、蝕まれた欠片は獣を狂わせる。旅人は星霊術で欠片の力を技として紡ぐ。",
+  "naming": "星・光・宙・欠片などを想起させる日本語(漢字+かな)",
   "power_system": {
     "name": "星霊術",
     "ability_term": "星技",
@@ -200,5 +202,38 @@
     "battle_name": "星蝕の仔狼との遭遇",
     "enemy_ids": ["m1_wolf"],
     "intro": "夜空の欠片が墜ちた森で、星を喰らう仔狼が唸りを上げた。"
-  }
+  },
+  "fallback_enemies": [
+    {
+      "name": "星屑の亡霊",
+      "title": "揺らめく残光",
+      "personality": "臆病",
+      "normal_name": "冷気の爪",
+      "special_name": "星喰の咆哮",
+      "special_effects": [{"tag": "damage", "power": 1.5, "target": "enemy"}],
+      "intro": "崩れた星片の陰から、青白い残光がにじみ出た。"
+    },
+    {
+      "name": "蝕まれた岩甲獣",
+      "title": "軋む装甲",
+      "personality": "凶暴",
+      "normal_name": "突進",
+      "special_name": "岩甲の粉砕",
+      "special_effects": [
+        {"tag": "damage", "power": 1.2, "target": "enemy"},
+        {"tag": "debuff", "stat": "def", "mult": 0.85, "turns": 2, "target": "enemy"}
+      ],
+      "intro": "地響きとともに、黒ずんだ甲殻の獣が姿を現した。"
+    },
+    {
+      "name": "夜哭きの梟",
+      "title": "静寂を裂く声",
+      "personality": "狡猾",
+      "normal_name": "風切り爪",
+      "special_name": "哭声",
+      "special_effects": [{"tag": "dot", "power": 0.6, "turns": 2, "target": "enemy"}],
+      "intro": "梢の闇で、二つの光る眼がこちらを見下ろしていた。"
+    }
+  ],
+  "recruit_pool_roles": ["attacker", "support", "tank", "healer"]
 }

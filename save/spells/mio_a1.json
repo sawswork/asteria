@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "mio_a1",
+  "kind": "ability",
+  "owner": "mio",
+  "name": "星灯の癒し",
+  "effects": [
+    {
+      "tag": "heal",
+      "power": 2.2,
+      "target": "ally"
+    }
+  ],
+  "desc": "味方1人を回復(2.2倍)",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 2
+}

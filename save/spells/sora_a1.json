@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "sora_a1",
+  "kind": "ability",
+  "owner": "sora",
+  "name": "星走り",
+  "effects": [
+    {
+      "tag": "damage",
+      "power": 1.6,
+      "target": "enemy"
+    }
+  ],
+  "desc": "星光をまとった刺突。威力1.6倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 2
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "id": "gante_a3",
+  "kind": "ability",
+  "owner": "gante",
+  "name": "鉄星の構え",
+  "effects": [
+    {
+      "tag": "buff",
+      "stat": "def",
+      "mult": 1.5,
+      "turns": 2,
+      "target": "self"
+    },
+    {
+      "tag": "hate",
+      "amount": 10,
+      "target": "self"
+    }
+  ],
+  "desc": "2ターンの間、自身の防御1.5倍+ヘイト増加",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 3
+}

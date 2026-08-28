@@ -1,0 +1,34 @@
+{
+  "name": "ノクト",
+  "title": "星図を継ぐ者",
+  "role": "attacker",
+  "personality": "寡黙だが仲間思い",
+  "background": "砕けた星の観測所で独り星図を守っていた青年。旅の一行に古い地図を託すため同行を申し出た。",
+  "battle_cry": "星図が示す急所、外さない。",
+  "abilities": [
+    {
+      "name": "星図の一閃",
+      "desc": "急所を狙う斬撃。威力1.3倍",
+      "ct": 2,
+      "effects": [{"tag": "damage", "power": 1.3, "target": "enemy"}]
+    },
+    {
+      "name": "観測の眼",
+      "desc": "敵を分析する",
+      "ct": 3,
+      "effects": [{"tag": "scan", "target": "enemy"}]
+    },
+    {
+      "name": "流星の脚",
+      "desc": "2ターンの間、自身の素早さ1.2倍",
+      "ct": 3,
+      "effects": [{"tag": "buff", "stat": "agi", "mult": 1.2, "turns": 2, "target": "self"}]
+    }
+  ],
+  "ultimate": {
+    "name": "墜星図",
+    "desc": "星図に記された墜星を再演する。威力2.6倍",
+    "ct": 0,
+    "effects": [{"tag": "damage", "power": 2.6, "target": "enemy"}]
+  }
+}

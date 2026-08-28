@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "id": "gante_a1",
+  "kind": "ability",
+  "owner": "gante",
+  "name": "挑発の雄叫び",
+  "effects": [
+    {
+      "tag": "taunt",
+      "target": "self"
+    }
+  ],
+  "desc": "敵の狙いを自分に強制固定(2ターン)",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 3
+}

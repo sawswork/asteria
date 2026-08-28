@@ -1,0 +1,34 @@
+{
+  "id": "mio",
+  "role": "healer",
+  "name": "ミオ",
+  "title": "祈り手",
+  "max_hp": 85,
+  "hp": 85,
+  "atk": 9,
+  "def": 8,
+  "agi": 10,
+  "ult_gauge": 100,
+  "hate": 41.0,
+  "buffs": [],
+  "shield": 0,
+  "stunned_turns": 0,
+  "dots": [],
+  "slots": {
+    "ability1": "mio_a1",
+    "ability2": "mio_a2",
+    "ability3": "mio_a3",
+    "ultimate": "mio_ult"
+  },
+  "slot_state": {
+    "ability1": {
+      "ready_in": 0
+    },
+    "ability2": {
+      "ready_in": 0
+    },
+    "ability3": {
+      "ready_in": 0
+    }
+  }
+}

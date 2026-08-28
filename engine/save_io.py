@@ -128,6 +128,7 @@ def load_save(save_dir: str | Path) -> Save:
         xp=int(player.get("xp", 0)),
         spell_tokens=int(player.get("spell_tokens", 0)),
         roster_extra=load_members(list(player.get("roster_extra", []))),
+        pending_update=state.get("pending_update"),
     )
 
 
@@ -176,6 +177,7 @@ def write_save(save: Save, save_dir: str | Path) -> None:
             "battle": save.battle.to_dict() if save.battle else None,
             "processed_issues": save.processed_issues,
             "stats": save.stats,
+            "pending_update": save.pending_update,
         },
         root / "state.json",
     )

@@ -42,6 +42,9 @@ def render_readme(save: Save, world: dict[str, Any], repo_slug: str, cache_key: 
         },
     )
 
+    generate_url = f"https://github.com/{repo_slug}/issues/new?template=generate.yml"
+    update_url = f"https://github.com/{repo_slug}/issues/new?template=update.yml"
+
     if save.battle and save.battle.active:
         status = f"⚔️ 戦闘中: **{save.battle.name}**(ターン{save.battle.turn})"
     elif save.battle and save.battle.result == "victory":
@@ -53,6 +56,10 @@ def render_readme(save: Save, world: dict[str, Any], repo_slug: str, cache_key: 
 
     victories = save.stats.get("victories", 0)
     journal_tail = "\n".join(f"- {line}" for line in save.journal[-5:])
+    spell_tokens = save.spell_tokens
+    level = save.level
+    xp = save.xp
+    roster_count = len(save.roster_extra)
 
     return f"""# 🌠 {world_name}
 
@@ -72,8 +79,11 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 |---|---|
 | ▶ **[ターンを入力する]({new_turn_url})** | 4人の行動と対象を選んで送信(1フォーム=1ターン) |
 | ⚡ **[全員通常攻撃(1タップ)]({all_normal_url})** | 全員「通常攻撃/自動」が入力済みのフォームが開く |
+| ✨ **[技生成の儀式]({generate_url})** | 生成権(残り**{spell_tokens}**)を使い、詠唱文から新しい技を紡ぐ |
+| 🔮 **[技アップデート]({update_url})** | 使い込んだ技の進化3案から選ぶ |
 
 送信後、数十秒でこのページのボードが更新される(結果はIssueにも返信される)。
+現在: **Lv{level}**(XP {xp})/ 技生成権 **{spell_tokens}** / 控えメンバー {roster_count}人
 
 ## 📖 遊び方
 

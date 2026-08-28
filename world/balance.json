@@ -85,5 +85,12 @@
   "cc": {
     "stun_resist_step": 1,
     "max_stun_turns": 2
-  }
+  },
+  "update_bonus": {
+    "per_use": 0.6,
+    "per_kill": 3.0,
+    "max_bonus": 30.0
+  },
+  "elite_every_battles": 4,
+  "recruit_every_victories": 3
 }

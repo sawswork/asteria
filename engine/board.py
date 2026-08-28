@@ -159,7 +159,7 @@ def build_board_svg(save: Save, world: dict[str, Any], balance: dict[str, Any]) 
     parts.append(f'<rect width="{WIDTH}" height="{height}" rx="10" fill="{BG}"/>')
 
     # ヘッダ
-    title = f"🌠 {world_name}"
+    title = f"🌠 {world_name} · Lv{save.level}"
     parts.append(_text(20, 32, title, size=18, fill=TEXT, weight="bold"))
     if battle:
         status = f"{battle.name} — ターン{battle.turn}"
@@ -202,6 +202,9 @@ def build_board_svg(save: Save, world: dict[str, Any], balance: dict[str, Any]) 
         shown = line if len(line) <= 58 else line[:57] + "…"
         parts.append(_text(20, y_log + 40 + i * 17, shown, size=12, fill=TEXT))
 
+    parts.append(
+        _text(20, height - 8, f"技生成権 {save.spell_tokens} / 控え {len(save.roster_extra)}人", size=9, fill=SUB)
+    )
     parts.append(
         _text(WIDTH - 20, height - 8, f"ゲージ={gauge_term} / チップ✓=使用可 / CTn=あとnターン", size=9, fill=SUB, anchor="end")
     )

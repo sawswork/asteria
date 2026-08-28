@@ -1,330 +1,10 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
     "counter": 74
   },
-  "party": [
-    {
-      "id": "sora",
-      "role": "attacker",
-      "name": "ソラ",
-      "title": "星剣士",
-      "max_hp": 95,
-      "hp": 84,
-      "atk": 16,
-      "def": 8,
-      "agi": 14,
-      "abilities": [
-        {
-          "id": "sora_a1",
-          "name": "星走り",
-          "ct": 2,
-          "effects": [
-            {
-              "tag": "damage",
-              "power": 1.6,
-              "target": "enemy"
-            }
-          ],
-          "desc": "星光をまとった刺突。威力1.6倍",
-          "ready_in": 0
-        },
-        {
-          "id": "sora_a2",
-          "name": "二連流星",
-          "ct": 3,
-          "effects": [
-            {
-              "tag": "damage",
-              "power": 0.9,
-              "hits": 2,
-              "target": "enemy"
-            }
-          ],
-          "desc": "0.9倍の斬撃を2連撃",
-          "ready_in": 0
-        },
-        {
-          "id": "sora_a3",
-          "name": "剣気練成",
-          "ct": 4,
-          "effects": [
-            {
-              "tag": "buff",
-              "stat": "atk",
-              "mult": 1.3,
-              "turns": 2,
-              "target": "self"
-            }
-          ],
-          "desc": "2ターンの間、自身の攻撃1.3倍",
-          "ready_in": 0
-        }
-      ],
-      "ultimate": {
-        "id": "sora_ult",
-        "name": "彗星烈斬",
-        "effects": [
-          {
-            "tag": "damage",
-            "power": 3.4,
-            "target": "enemy"
-          }
-        ],
-        "desc": "彗星の如き一閃。威力3.4倍"
-      },
-      "ult_gauge": 0,
-      "hate": 156.0,
-      "buffs": []
-    },
-    {
-      "id": "ryuno",
-      "role": "support",
-      "name": "リュノ",
-      "title": "星詠み",
-      "max_hp": 88,
-      "hp": 88,
-      "atk": 10,
-      "def": 9,
-      "agi": 12,
-      "abilities": [
-        {
-          "id": "ryuno_a1",
-          "name": "星の勇歌",
-          "ct": 3,
-          "effects": [
-            {
-              "tag": "buff",
-              "stat": "atk",
-              "mult": 1.2,
-              "turns": 2,
-              "target": "party"
-            }
-          ],
-          "desc": "2ターンの間、全員の攻撃1.2倍",
-          "ready_in": 0
-        },
-        {
-          "id": "ryuno_a2",
-          "name": "星の護歌",
-          "ct": 3,
-          "effects": [
-            {
-              "tag": "buff",
-              "stat": "def",
-              "mult": 1.3,
-              "turns": 2,
-              "target": "party"
-            }
-          ],
-          "desc": "2ターンの間、全員の防御1.3倍",
-          "ready_in": 0
-        },
-        {
-          "id": "ryuno_a3",
-          "name": "流星の矢",
-          "ct": 1,
-          "effects": [
-            {
-              "tag": "damage",
-              "power": 1.1,
-              "target": "enemy"
-            }
-          ],
-          "desc": "星屑を射出する。威力1.1倍",
-          "ready_in": 0
-        }
-      ],
-      "ultimate": {
-        "id": "ryuno_ult",
-        "name": "星海の大合唱",
-        "effects": [
-          {
-            "tag": "buff",
-            "stat": "atk",
-            "mult": 1.35,
-            "turns": 2,
-            "target": "party"
-          },
-          {
-            "tag": "buff",
-            "stat": "def",
-            "mult": 1.25,
-            "turns": 2,
-            "target": "party"
-          }
-        ],
-        "desc": "2ターンの間、全員の攻撃1.35倍・防御1.25倍"
-      },
-      "ult_gauge": 100,
-      "hate": 45.0,
-      "buffs": []
-    },
-    {
-      "id": "gante",
-      "role": "tank",
-      "name": "ガンテ",
-      "title": "星盾騎士",
-      "max_hp": 145,
-      "hp": 93,
-      "atk": 9,
-      "def": 15,
-      "agi": 6,
-      "abilities": [
-        {
-          "id": "gante_a1",
-          "name": "挑発の雄叫び",
-          "ct": 3,
-          "effects": [
-            {
-              "tag": "taunt",
-              "target": "self"
-            }
-          ],
-          "desc": "敵の狙いを自分に強制固定(2ターン)",
-          "ready_in": 0
-        },
-        {
-          "id": "gante_a2",
-          "name": "星盾強打",
-          "ct": 2,
-          "effects": [
-            {
-              "tag": "damage",
-              "power": 1.2,
-              "target": "enemy"
-            },
-            {
-              "tag": "hate",
-              "amount": 20,
-              "target": "self"
-            }
-          ],
-          "desc": "盾の一撃(1.2倍)+ヘイト増加",
-          "ready_in": 0
-        },
-        {
-          "id": "gante_a3",
-          "name": "鉄星の構え",
-          "ct": 3,
-          "effects": [
-            {
-              "tag": "buff",
-              "stat": "def",
-              "mult": 1.5,
-              "turns": 2,
-              "target": "self"
-            },
-            {
-              "tag": "hate",
-              "amount": 10,
-              "target": "self"
-            }
-          ],
-          "desc": "2ターンの間、自身の防御1.5倍+ヘイト増加",
-          "ready_in": 0
-        }
-      ],
-      "ultimate": {
-        "id": "gante_ult",
-        "name": "不動の星砦",
-        "effects": [
-          {
-            "tag": "buff",
-            "stat": "def",
-            "mult": 1.6,
-            "turns": 2,
-            "target": "self"
-          },
-          {
-            "tag": "taunt",
-            "target": "self"
-          },
-          {
-            "tag": "hate",
-            "amount": 40,
-            "target": "self"
-          }
-        ],
-        "desc": "防御1.6倍+挑発ロック+大ヘイト"
-      },
-      "ult_gauge": 100,
-      "hate": 153.0,
-      "buffs": []
-    },
-    {
-      "id": "mio",
-      "role": "healer",
-      "name": "ミオ",
-      "title": "祈り手",
-      "max_hp": 85,
-      "hp": 85,
-      "atk": 9,
-      "def": 8,
-      "agi": 10,
-      "abilities": [
-        {
-          "id": "mio_a1",
-          "name": "星灯の癒し",
-          "ct": 2,
-          "effects": [
-            {
-              "tag": "heal",
-              "power": 2.2,
-              "target": "ally"
-            }
-          ],
-          "desc": "味方1人を回復(2.2倍)",
-          "ready_in": 0
-        },
-        {
-          "id": "mio_a2",
-          "name": "星環の祈り",
-          "ct": 4,
-          "effects": [
-            {
-              "tag": "heal",
-              "power": 1.2,
-              "target": "party"
-            }
-          ],
-          "desc": "全員を回復(1.2倍)",
-          "ready_in": 0
-        },
-        {
-          "id": "mio_a3",
-          "name": "光芒の矢",
-          "ct": 1,
-          "effects": [
-            {
-              "tag": "damage",
-              "power": 1.1,
-              "target": "enemy"
-            }
-          ],
-          "desc": "祈りの光弾。威力1.1倍",
-          "ready_in": 0
-        }
-      ],
-      "ultimate": {
-        "id": "mio_ult",
-        "name": "母星の抱擁",
-        "effects": [
-          {
-            "tag": "heal",
-            "power": 2.5,
-            "target": "party"
-          }
-        ],
-        "desc": "全員を大回復(2.5倍)"
-      },
-      "ult_gauge": 100,
-      "hate": 41.0,
-      "buffs": []
-    }
-  ],
   "battle": {
     "active": false,
     "name": "星蝕の仔狼との遭遇",
@@ -361,7 +41,15 @@
             ]
           }
         },
-        "buffs": []
+        "buffs": [],
+        "shield": 0,
+        "stunned_turns": 0,
+        "dots": [],
+        "cc_resist": {},
+        "personality": "",
+        "tier": "standard",
+        "intelligent": false,
+        "xp": 0
       }
     ],
     "result": "victory",
@@ -378,7 +66,8 @@
       "ソラの奥義《彗星烈斬》! 星蝕の仔狼に50ダメージ!",
       "星蝕の仔狼を撃破!",
       "勝利! 「星蝕の仔狼との遭遇」を制した!"
-    ]
+    ],
+    "scanned": []
   },
   "processed_issues": [
     1,
@@ -390,11 +79,8 @@
     8,
     9
   ],
-  "journal": [
-    "旅が始まった。",
-    "「星蝕の仔狼との遭遇」に勝利(ターン8)"
-  ],
   "stats": {
     "victories": 1
-  }
+  },
+  "pending_update": null
 }

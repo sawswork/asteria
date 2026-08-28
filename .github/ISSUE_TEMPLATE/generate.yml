@@ -1,0 +1,34 @@
+name: ✨ 技生成の儀式
+description: 生成権を1つ使い、詠唱文から新しい技を紡ぐ(選んだスロットの技と入れ替え)
+title: "[GENERATE] 技生成の儀式"
+labels: ["turn"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        生成権はレベルアップで獲得できます(残数はREADMEに表示)。
+        選んだスロットの今の技は魔導書(save/spells/)に残りますが、スロットからは外れます。
+        戦闘中は儀式を行えません。
+  - type: dropdown
+    id: member
+    attributes:
+      label: 対象メンバー
+      options: ["アタッカー", "サポート", "タンク", "ヒーラー"]
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    id: slot
+    attributes:
+      label: スロット
+      options: ["アビ1", "アビ2", "アビ3", "奥義"]
+      default: 0
+    validations:
+      required: true
+  - type: textarea
+    id: incantation
+    attributes:
+      label: 詠唱文
+      description: どんな技にしたいか自由に。例「静電気を一点に集める暗殺呪文を」「仲間全員を星の光で守る歌を」
+    validations:
+      required: true

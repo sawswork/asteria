@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "mio_a3",
+  "kind": "ability",
+  "owner": "mio",
+  "name": "光芒の矢",
+  "effects": [
+    {
+      "tag": "damage",
+      "power": 1.1,
+      "target": "enemy"
+    }
+  ],
+  "desc": "祈りの光弾。威力1.1倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 1
+}

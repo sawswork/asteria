@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "id": "sora_a3",
+  "kind": "ability",
+  "owner": "sora",
+  "name": "剣気練成",
+  "effects": [
+    {
+      "tag": "buff",
+      "stat": "atk",
+      "mult": 1.3,
+      "turns": 2,
+      "target": "self"
+    }
+  ],
+  "desc": "2ターンの間、自身の攻撃1.3倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 4
+}

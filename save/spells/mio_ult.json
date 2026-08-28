@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "mio_ult",
+  "kind": "ultimate",
+  "owner": "mio",
+  "name": "母星の抱擁",
+  "effects": [
+    {
+      "tag": "heal",
+      "power": 2.5,
+      "target": "party"
+    }
+  ],
+  "desc": "全員を大回復(2.5倍)",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 0
+}

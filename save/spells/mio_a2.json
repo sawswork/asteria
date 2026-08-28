@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "mio_a2",
+  "kind": "ability",
+  "owner": "mio",
+  "name": "星環の祈り",
+  "effects": [
+    {
+      "tag": "heal",
+      "power": 1.2,
+      "target": "party"
+    }
+  ],
+  "desc": "全員を回復(1.2倍)",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 4
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "id": "gante_a2",
+  "kind": "ability",
+  "owner": "gante",
+  "name": "星盾強打",
+  "effects": [
+    {
+      "tag": "damage",
+      "power": 1.2,
+      "target": "enemy"
+    },
+    {
+      "tag": "hate",
+      "amount": 20,
+      "target": "self"
+    }
+  ],
+  "desc": "盾の一撃(1.2倍)+ヘイト増加",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 2
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "sora_ult",
+  "kind": "ultimate",
+  "owner": "sora",
+  "name": "彗星烈斬",
+  "effects": [
+    {
+      "tag": "damage",
+      "power": 3.4,
+      "target": "enemy"
+    }
+  ],
+  "desc": "彗星の如き一閃。威力3.4倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 0
+}

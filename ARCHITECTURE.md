@@ -11,8 +11,10 @@ PROGRESS.md             マイルストーン進捗チェックリスト
 DECISIONS.md            決定事項ログ(1行1決定)
 README.md               ゲーム画面(戦況ボード+操作リンク)。ゲーム側が自動更新する
 world/
-  world.json            世界定数(世界名・力の体系・用語・敵図鑑など)。固有名詞はここだけ
-  balance.json          バランス係数の一元管理(ダメージ式・ヘイト・ゲージ・挑発など)
+  world.json            世界定数(世界名・世界観・用語・敵図鑑・フォールバック敵)。固有名詞はここだけ
+  balance.json          バランス係数の一元管理(ダメージ式・ヘイト・ゲージ・技予算・敵スケール・レベル曲線)
+config/
+  ai.json               AIモデル設定(ターン処理=軽量 / 生成=上位)とリトライ回数
 engine/                 ゲームエンジン(Python パッケージ。世界の固有名詞を含まない)
   models.py             型定義(Actor/Ability/BattleState/SaveData 等)+ save⇔dict 変換
   rng.py                シード+カウンタ方式の決定的乱数(セーブに記録しリプレイ可能)
@@ -21,23 +23,35 @@ engine/                 ゲームエンジン(Python パッケージ。世界の
   enemy_ai.py           敵AIルール層(ヘイト最大狙い・挑発ロック遵守)。M2で知能層を追加
   board.py              戦況ボードSVG生成(自己完結・50KB以内)
   screen.py             README(ゲーム画面)のマーカー区間更新
-  issue_parser.py       Issue Form本文(Markdown)→ターンコマンドJSON
-  save_io.py            セーブの読み書き境界(load/save + 初期セーブ生成)
-  ai_client.py          AI呼び出し境界(claude CLI ヘッドレス)。--mock でfixtures固定応答。M1ではダミー
+  issue_parser.py       Issue Form本文(Markdown)→各フォームの入力(TURN/GENERATE/UPDATE)
+  save_io.py            セーブの読み書き境界(スキーマv2: 分割ファイル+v1透過移行)
+  spells.py             技の予算計算・効果タグ辞書スキーマ・検証(数値の最終決定権はここ)
+  ai_schemas.py         AI応答のJSONスキーマ(技生成/3案/敵生成/ターン/勧誘)
+  prompts.py            AIプロンプト構築(純粋関数。世界観+旅の記憶を同梱)
+  ai_client.py          AI呼び出し境界(claude CLI ヘッドレス+スキーマ検証+リトライ)。--mock でfixtures固定応答
+  turn_ai.py            ターン処理のAI同梱呼び出し(敵知能層判断+ログ味付け。失敗=ルール層)
+  generation.py         生成系オーケストレーション(技/3案/敵/勧誘。検証→却下ならフォールバック)
   gh_api.py             GitHub REST境界(コメント投稿・Issueクローズ)。GITHUB_TOKEN使用
   gitops.py             git操作境界(add/commit/push、SHA取得)
   turn_runner.py        Actionsエントリ: イベント→検証→解決→保存→画面→返信→クローズ
   cli.py                ローカル実行: python -m engine.cli --input fixtures/turn.json
-save/
-  state.json            セーブデータ(パーティ・戦闘状態・乱数シード・処理済みIssue・ログ)
+save/                   セーブ(スキーマv2)
+  state.json            乱数・戦闘状態・処理済みIssue・統計
+  player.json           レベル・XP・技生成権・編成
+  party/<id>.json       メンバー1人1ファイル(スロット=技ID参照)
+  spells/<id>.json      技1つ1ファイル(差し替え後も残る=魔導書・成長史)
+  log.md                旅の記憶(AIプロンプトに同梱)
 assets/
   board.svg             最新の戦況ボード(毎ターン再生成)
 fixtures/               CLI/テスト用の固定入力(ターンJSON・Issue本文サンプル・AIモック応答)
 tests/                  pytest(全てAIモックで実行)
 .github/
-  ISSUE_TEMPLATE/turn.yml   ターン入力フォーム(固定YAML・スロット語彙)
-  workflows/turn.yml        ターン処理ワークフロー(issues:opened / workflow_dispatch)
-  workflows/ci.yml          push時に pytest を実行
+  ISSUE_TEMPLATE/turn.yml       ターン入力フォーム(固定YAML・スロット語彙)
+  ISSUE_TEMPLATE/generate.yml   技生成の儀式フォーム(生成権を消費・詠唱文)
+  ISSUE_TEMPLATE/update.yml     技アップデートフォーム(3案提示→選択の2段階)
+  workflows/turn.yml            Issue処理ワークフロー([TURN]/[GENERATE]/[UPDATE] 共通・直列化)
+  workflows/ci.yml              push時に pytest を実行
+  workflows/tag.yml             マイルストーンタグ付け(workflow_dispatch)
 ```
 
 ## データフロー(1ターン)

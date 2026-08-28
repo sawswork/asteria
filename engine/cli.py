@@ -14,8 +14,10 @@ from pathlib import Path
 
 from . import battle as battle_mod
 from . import board as board_mod
-from . import screen
+from . import generation, screen, turn_ai
+from .ai_client import AiClient
 from .commands import Command, validate_commands
+from .rng import Rng
 from .save_io import DEFAULT_SEED, load_json, load_save, new_save, write_save
 
 DEFAULT_REPO = "OWNER/REPO"  # ローカル表示用のプレースホルダ(実機はGITHUB_REPOSITORYを使う)
@@ -59,9 +61,19 @@ def main(argv: list[str] | None = None) -> int:
     if not args.input:
         parser.error("--input か --reset のどちらかを指定してください")
 
+    ai = AiClient(mock=args.mock, fixtures_dir=root / "fixtures/ai", config_path=root / "config/ai.json")
     save = load_save(root / args.save)
     if save.battle is None or not save.battle.active:
-        save = battle_mod.start_battle(save, world, balance)
+        is_first = (save.stats.get("victories", 0) + save.stats.get("defeats", 0)) == 0
+        if is_first:
+            save = battle_mod.start_battle(save, world, balance)
+        else:
+            rng = Rng(save.rng_seed, save.rng_counter)
+            enemy, intro, _used_ai = generation.generate_enemy(save, world, balance, ai, rng)
+            save.rng_counter = rng.counter
+            save = battle_mod.start_battle(
+                save, world, balance, enemies=[enemy], battle_name=f"{enemy.name}との戦い", intro=intro
+            )
         print(f"新しい戦いが始まった: {save.battle.name}")  # type: ignore[union-attr]
 
     turn_input = load_json(root / args.input)
@@ -77,7 +89,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {e.role}: {e.reason}")
         return 2
 
-    new, report = battle_mod.resolve_turn(save, commands, balance, world)
+    overrides, flavor = turn_ai.compute_enemy_overrides(save, world, ai)
+    new, report = battle_mod.resolve_turn(save, commands, balance, world, overrides)
+    report.lines.extend(f"({line})" for line in flavor)
     for line in report.lines:
         print(line)
     summary = {

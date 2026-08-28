@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "ryuno_a3",
+  "kind": "ability",
+  "owner": "ryuno",
+  "name": "流星の矢",
+  "effects": [
+    {
+      "tag": "damage",
+      "power": 1.1,
+      "target": "enemy"
+    }
+  ],
+  "desc": "星屑を射出する。威力1.1倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 1
+}

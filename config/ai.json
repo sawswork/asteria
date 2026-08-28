@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "models": {
+    "turn": "claude-haiku-4-5-20251001",
+    "generation": "claude-sonnet-5"
+  },
+  "timeout_seconds": 120,
+  "max_retries": 2
+}

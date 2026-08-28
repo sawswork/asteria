@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "id": "ryuno_ult",
+  "kind": "ultimate",
+  "owner": "ryuno",
+  "name": "星海の大合唱",
+  "effects": [
+    {
+      "tag": "buff",
+      "stat": "atk",
+      "mult": 1.35,
+      "turns": 2,
+      "target": "party"
+    },
+    {
+      "tag": "buff",
+      "stat": "def",
+      "mult": 1.25,
+      "turns": 2,
+      "target": "party"
+    }
+  ],
+  "desc": "2ターンの間、全員の攻撃1.35倍・防御1.25倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 0
+}

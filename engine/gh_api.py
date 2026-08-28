@@ -39,7 +39,7 @@ class GhApi:
                 time.sleep(2**attempt)
         raise RuntimeError(f"GitHub API {method} {path} failed: {last_error}")
 
-    def list_open_turn_issues(self, title_prefix: str) -> list[dict[str, Any]]:
+    def list_open_turn_issues(self, title_prefix: str | tuple[str, ...]) -> list[dict[str, Any]]:
         """オープンなターンIssueを番号昇順で返す(PRは除外)。取りこぼしIssueの回収に使う。"""
         issues: list[dict[str, Any]] = []
         for page in range(1, 4):
