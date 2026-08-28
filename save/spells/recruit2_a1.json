@@ -1,13 +1,13 @@
 {
   "schema_version": 2,
-  "id": "gante_a2",
+  "id": "recruit2_a1",
   "kind": "ability",
-  "owner": "gante",
-  "name": "星盾強打",
+  "owner": "recruit2",
+  "name": "無銘の技",
   "effects": [
     {
       "tag": "damage",
-      "power": 1.2,
+      "power": 3.4,
       "target": "enemy"
     },
     {
@@ -16,8 +16,8 @@
       "target": "self"
     }
   ],
-  "desc": "盾の一撃(1.2倍)+ヘイト増加",
-  "usage_count": 8,
+  "desc": "攻撃(3.4倍)+ヘイト増加",
+  "usage_count": 0,
   "kills": 0,
   "constraints": [],
   "ct": 2

@@ -1,25 +1,25 @@
 {
-  "id": "gante",
+  "id": "recruit2",
   "role": "tank",
-  "name": "ガンテ",
-  "title": "星盾騎士",
+  "name": "流れ星の旅人",
+  "title": "名もなき同行者",
   "max_hp": 181,
   "hp": 181,
   "atk": 12,
   "def": 21,
   "agi": 6,
-  "ult_gauge": 100,
-  "hate": 81.0,
+  "ult_gauge": 0,
+  "hate": 5.0,
   "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
   "dots": [],
   "field_tags": [],
   "slots": {
-    "ability1": "gante_a1",
-    "ability2": "gante_a2",
-    "ability3": "gante_a3",
-    "ultimate": "gante_ult"
+    "ability1": "recruit2_a1",
+    "ability2": "recruit2_a2",
+    "ability3": "recruit2_a3",
+    "ultimate": "recruit2_ult"
   },
   "slot_state": {
     "ability1": {
@@ -27,8 +27,8 @@
       "battle_uses": 0
     },
     "ability2": {
-      "ready_in": 1,
-      "battle_uses": 2
+      "ready_in": 0,
+      "battle_uses": 0
     },
     "ability3": {
       "ready_in": 0,

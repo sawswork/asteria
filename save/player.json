@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "level": 4,
-  "xp": 43,
+  "xp": 143,
   "spell_tokens": 1,
   "active_party": [
     "sora",
@@ -10,6 +10,7 @@
     "mio"
   ],
   "roster_extra": [
-    "recruit1"
+    "recruit1",
+    "recruit2"
   ]
 }

@@ -3,25 +3,25 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 270
+    "counter": 317
   },
   "battle": {
     "active": false,
-    "name": "蝕まれた岩甲獣との戦い",
-    "turn": 4,
+    "name": "夜哭きの梟との戦い",
+    "turn": 5,
     "enemies": [
       {
-        "id": "enemy_gen4",
-        "name": "蝕まれた岩甲獣",
-        "title": "軋む装甲",
-        "max_hp": 280,
+        "id": "enemy_gen5",
+        "name": "夜哭きの梟",
+        "title": "静寂を裂く声",
+        "max_hp": 320,
         "hp": 0,
-        "atk": 16,
-        "def": 11,
+        "atk": 19,
+        "def": 12,
         "agi": 12,
         "actions": {
           "normal": {
-            "name": "突進",
+            "name": "風切り爪",
             "effects": [
               {
                 "tag": "damage",
@@ -31,17 +31,11 @@
             ]
           },
           "special": {
-            "name": "岩甲の粉砕",
+            "name": "哭声",
             "effects": [
               {
-                "tag": "damage",
-                "power": 1.2,
-                "target": "enemy"
-              },
-              {
-                "tag": "debuff",
-                "stat": "def",
-                "mult": 0.85,
+                "tag": "dot",
+                "power": 0.6,
                 "turns": 2,
                 "target": "enemy"
               }
@@ -53,7 +47,7 @@
         "stunned_turns": 0,
         "dots": [],
         "cc_resist": {},
-        "personality": "凶暴",
+        "personality": "狡猾",
         "tier": "standard",
         "intelligent": true,
         "xp": 100,
@@ -70,16 +64,16 @@
     "taunt_holder_id": null,
     "taunt_turns_left": 0,
     "recent_log": [
-      "ガンテの星技「星盾強打」! 蝕まれた岩甲獣に7ダメージ!",
       "ガンテは敵の注意を引いた(ヘイト+20)。",
-      "(岩甲獣が身体を低く構える。挑発に応えるかのように、全身に力を溜める——凶暴な咆哮とともに、ガンテに向けて一撃を放つ！)",
-      "—— ターン4 ——",
-      "ソラの星技「二連流星」! 蝕まれた岩甲獣に2連撃で13ダメージ!",
-      "蝕まれた岩甲獣を撃破!",
-      "勝利! 「蝕まれた岩甲獣との戦い」を制した!",
-      "経験値100を獲得!(累計225)",
-      "⭐ レベルアップ! パーティはLv4になった! 技生成権+1(所持1)",
-      "(蝕まれた岩甲獣は最後の力を振り絞った。体力僅か13、もはや絶望的な状況だ。)"
+      "ミオは継続ダメージで11を受けた!",
+      "(夜哭きの梟は不気味な鳴き声を上げ、瀕死のミオへ狙いを定めた。)",
+      "(狡猾な戦術で、回復役を潰しにかかる。)",
+      "—— ターン5 ——",
+      "ソラの奥義《彗星烈斬》! 夜哭きの梟に67ダメージ!",
+      "夜哭きの梟を撃破!",
+      "勝利! 「夜哭きの梟との戦い」を制した!",
+      "経験値100を獲得!(累計143)",
+      "(瀕死の梟が最後の力を振り絞り、ソラを捉える)"
     ],
     "scanned": [],
     "resonance_used": true,
@@ -110,13 +104,14 @@
     26,
     27,
     28,
-    29
+    29,
+    30
   ],
   "stats": {
-    "victories": 5,
+    "victories": 6,
     "spells_generated": 3,
-    "enemies_generated": 4,
-    "recruits": 1
+    "enemies_generated": 5,
+    "recruits": 2
   },
   "pending_update": null,
   "nemesis": null
