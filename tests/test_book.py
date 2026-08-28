@@ -135,3 +135,62 @@ def test_book_does_not_change_the_save(tmp_path):
     assert after.battle.turn == before.battle.turn
     assert after.spell_tokens == before.spell_tokens
     assert after.battle.enemies[0].hp == before.battle.enemies[0].hp
+
+
+def test_frame_is_kept_until_the_table_of_contents_changes(tmp_path):
+    """章立てが変わらない限り、書名と序文は据え置く(編纂のたびに題が変わらない)。"""
+    root = make_root(tmp_path)
+    gh = FakeGhApi()
+    _play(root, gh, 1)
+    process_issue(make_issue(2, BOOK_BODY, title="[BOOK] 旅の書"), REPO, str(root), do_git=False, gh=gh, ai=_ai())
+    frame_path = root / book.FRAME_PATH
+    first = frame_path.read_text(encoding="utf-8")
+    process_issue(make_issue(3, BOOK_BODY, title="[BOOK] 旅の書"), REPO, str(root), do_git=False, gh=gh, ai=_ai())
+    assert frame_path.read_text(encoding="utf-8") == first  # 作り直されていない
+
+
+def test_frame_staleness_tracks_the_chapter_titles():
+    stamped = book.frame_with_stamp({"title": "旅の書"}, ["第1章"])
+    assert not book.frame_is_stale(stamped, ["第1章"])
+    assert book.frame_is_stale(stamped, ["第1章", "第2章"])  # 章が増えたら編み直す
+    assert book.frame_is_stale({}, ["第1章"])
+
+
+def test_rejected_chapter_is_recompiled_with_feedback(tmp_path):
+    """一度却下されても、理由を添えてもう一度だけ編み直す。"""
+    root = make_root(tmp_path)
+    gh = FakeGhApi()
+    _play(root, gh, 1)
+    fixtures = tmp_path / "retry_fixtures"
+    fixtures.mkdir()
+    # 1回目は不正(titleが空)、2回目で通る応答を順に返す
+    (fixtures / "book_chapter.json").write_text(
+        '[{"title": "", "text": "x"}, {"title": "второй", "text": "編み直した本文"}]',
+        encoding="utf-8",
+    )
+    (fixtures / "book_frame.json").write_text(
+        '{"title": "書", "preface": "序", "epilogue": "結"}', encoding="utf-8"
+    )
+    ai = AiClient(mock=True, fixtures_dir=fixtures)
+    ai.config["max_retries"] = 0  # 1回目の呼び出しは必ず失敗させる
+    process_issue(
+        make_issue(2, BOOK_BODY, title="[BOOK] 旅の書"), REPO, str(root), do_git=False, gh=gh, ai=ai
+    )
+    text = (root / book.BOOK_PATH).read_text(encoding="utf-8")
+    assert "編み直した本文" in text
+    assert "まだ編纂されていません" not in text
+
+
+def test_validation_reason_is_logged_without_the_response(capsys):
+    """却下の理由は「どの項目のどの制約か」まで出す。応答本文は出さない(不変則)。"""
+    import jsonschema
+
+    from engine.ai_client import _why
+
+    schema = {"type": "object", "properties": {"t": {"type": "string", "maxLength": 3}}}
+    try:
+        jsonschema.validate({"t": "秘密の応答本文"}, schema)
+    except jsonschema.ValidationError as e:
+        reason = _why(e)
+    assert "maxLength" in reason and "$.t" in reason
+    assert "秘密の応答本文" not in reason
