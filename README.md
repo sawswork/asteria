@@ -4,12 +4,12 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-⚔️ 戦闘中: **蝕まれた岩甲獣との戦い**(ターン3)
+⚔️ 戦闘中: **蝕まれた岩甲獣との戦い**(ターン4)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦闘シーン](assets/scene.svg?v=i31-a0)
+![戦闘シーン](assets/scene.svg?v=i32-a0)
 
-![戦況ボード](assets/board.svg?v=i31-a0)
+![戦況ボード](assets/board.svg?v=i32-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
