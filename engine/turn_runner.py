@@ -292,8 +292,16 @@ def _handle_turn(
     if errors:
         raise _Invalid(_reply_invalid_turn(errors, repo_slug))
 
-    def _run_one(cur: Save, commands: dict[str, Command]) -> tuple[Save, battle_mod.TurnReport]:
-        overrides, flavor = turn_ai.compute_enemy_overrides(cur, world, ai)
+    def _run_one(
+        cur: Save, commands: dict[str, Command], use_turn_ai: bool = True
+    ) -> tuple[Save, battle_mod.TurnReport]:
+        # 知能層AIは「プレイヤーが入力したターン」だけに使う。フルオートの自動ターンは
+        # ルール層で高速送りする(1Issueあたりのターン処理AI呼び出しを1回に保ち、
+        # ジョブ時間の上振れを防ぐ)。進化演出は稀なので自動ターンでも生成する。
+        overrides: dict[str, Any] = {}
+        flavor: list[str] = []
+        if use_turn_ai:
+            overrides, flavor = turn_ai.compute_enemy_overrides(cur, world, ai)
         evo = _evolution_overrides(cur, world, balance, ai)
         nxt, rep = battle_mod.resolve_turn(cur, commands, balance, world, overrides, evo)
         for line in flavor:
@@ -315,10 +323,13 @@ def _handle_turn(
             auto_cmds = _auto_commands(new_save, balance)
             if validate_commands(new_save, new_save.battle, auto_cmds, balance):
                 break  # 自動手が組めない状態(想定外)。ここまでの結果で打ち切る
-            new_save, report = _run_one(new_save, auto_cmds)
+            new_save, report = _run_one(new_save, auto_cmds, use_turn_ai=False)
             all_lines.extend(report.lines)
             turns_done += 1
-        auto_note = f"🤖 フルオート: {turns_done}ターンを自動解決(指定{limit}ターン上限)"
+        auto_note = (
+            f"🤖 フルオート: {turns_done}ターンを自動解決(指定{limit}ターン上限)。"
+            "自動ターンの敵はルール層で動きます(知能層AIは入力ターンのみ)"
+        )
 
     recruit_note = ""
     if report.result == "victory":
