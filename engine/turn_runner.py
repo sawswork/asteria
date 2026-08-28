@@ -178,12 +178,20 @@ def _compile_book(
             titles.append(f"第{index}章")
             continue
         try:
-            resp = ai.call(
-                "book_chapter",
-                prompts.build_book_chapter_prompt(world, index, book_mod.trim_source(source, src_limit)),
-                ai_schemas.BOOK_CHAPTER_SCHEMA,
-                purpose="generation",
+            base = prompts.build_book_chapter_prompt(
+                world, index, book_mod.trim_source(source, src_limit)
             )
+            try:
+                resp = ai.call("book_chapter", base, ai_schemas.BOOK_CHAPTER_SCHEMA, purpose="generation")
+            except AiError:
+                # 却下された理由(長すぎ等)を伝えて一度だけ編み直させる
+                resp = ai.call(
+                    "book_chapter",
+                    base + "\n\n【再依頼】前回の原稿は検証で却下された。"
+                    "title は40文字以内、text は3000文字以内に必ず収めること。",
+                    ai_schemas.BOOK_CHAPTER_SCHEMA,
+                    purpose="generation",
+                )
             text = book_mod.narrated_text(str(resp["title"]), str(resp["text"]), source)
             out_path.write_text(text, encoding="utf-8")
             chapters.append(book_mod.strip_marker(text))

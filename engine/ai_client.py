@@ -32,6 +32,20 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 
+def _why(error: Exception) -> str:
+    """検証エラーの理由を、応答本文を漏らさずに要約する(不変則: 応答全文をログに出さない)。
+
+    jsonschema は message に違反した値そのものを含めるため、値は使わず
+    「どの項目が・どの制約に触れたか」だけを残す。
+    """
+    path = getattr(error, "json_path", None)
+    validator = getattr(error, "validator", None)
+    if path and validator:
+        limit = getattr(error, "validator_value", "")
+        return f"{type(error).__name__} at {path}: {validator}={limit}"
+    return type(error).__name__
+
+
 class AiError(RuntimeError):
     """AI応答が得られない/検証を通らない。呼び出し側はルール層へフォールバックする。"""
 
@@ -175,5 +189,5 @@ class AiClient:
                 print(f"ai: {kind} failed (attempt {attempt + 1}): {e}")
             except Exception as e:  # jsonschema.ValidationError など(応答全文は出さない)
                 last_error = e
-                print(f"ai: {kind} invalid (attempt {attempt + 1}): {type(e).__name__}")
+                print(f"ai: {kind} invalid (attempt {attempt + 1}): {_why(e)}")
         raise AiError(f"{kind}: {attempts}回失敗(最終: {type(last_error).__name__})")

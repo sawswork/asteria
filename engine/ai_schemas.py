@@ -219,8 +219,8 @@ RECRUIT_SCHEMA: dict[str, Any] = {
 BOOK_CHAPTER_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
-        "title": {"type": "string", "minLength": 1, "maxLength": 30},
-        "text": {"type": "string", "minLength": 1, "maxLength": 2400},
+        "title": {"type": "string", "minLength": 1, "maxLength": 40},
+        "text": {"type": "string", "minLength": 1, "maxLength": 3000},
     },
     "required": ["title", "text"],
     "additionalProperties": False,
