@@ -3,19 +3,19 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 499
+    "counter": 509
   },
   "battle": {
-    "active": false,
-    "name": "夜哭きの梟との戦い",
-    "turn": 19,
+    "active": true,
+    "name": "宿敵・夜哭きの梟との再戦",
+    "turn": 2,
     "enemies": [
       {
         "id": "enemy_gen7",
         "name": "夜哭きの梟",
         "title": "静寂を裂く声",
         "max_hp": 704,
-        "hp": 386,
+        "hp": 692,
         "atk": 41,
         "def": 28,
         "agi": 12,
@@ -51,7 +51,7 @@
         "tier": "boss",
         "intelligent": true,
         "xp": 320,
-        "last_special_turn": 18,
+        "last_special_turn": 0,
         "field_tags": [],
         "weaknesses": [],
         "evolutions": [],
@@ -60,32 +60,23 @@
         "hp_evolution_triggered": false
       }
     ],
-    "result": "defeat",
+    "result": null,
     "taunt_holder_id": null,
     "taunt_turns_left": 0,
     "recent_log": [
-      "ガンテは敵の注意を引いた(ヘイト+20)。",
-      "ガンテは継続ダメージで25を受けた!",
-      "(夜哭きの梟の眼が狂ったように赤く輝く。最後の獲物へ、狡猾な殺意を研ぎ澄ます。)",
-      "—— ターン19 ——",
-      "夜哭きの梟「終わりだ…」",
-      "夜哭きの梟の風切り爪! ガンテに39ダメージ!",
-      "ガンテは倒れた……",
-      "全滅……パーティは拠点へ送り返された。",
-      "……夜哭きの梟は勝利の咆哮を上げた。奴はもう、ただの敵ではない。",
-      "(同胞は次々と倒れ、最後に残されたのは傷だらけのタンク一人。夜哭きの梟は嘴を鳴らし、狡猾な光を瞳に宿した。)"
+      "倒れたはずの夜哭きの梟が、深い唸りとともに再び立ち塞がる——宿敵との再戦。",
+      "—— ターン1 ——",
+      "ソラの攻撃! 夜哭きの梟に9ダメージ!",
+      "リュノの攻撃! 夜哭きの梟に1ダメージ!",
+      "ミオの攻撃! 夜哭きの梟に1ダメージ!",
+      "夜哭きの梟「まずは邪魔だ」",
+      "夜哭きの梟の風切り爪! ミオに37ダメージ!",
+      "ガンテの攻撃! 夜哭きの梟に1ダメージ!",
+      "(夜哭きの梟が低く鳴く。狡猾な黒い眼が敵陣を舐めるように見定め、ミオへ爪を立てた。)"
     ],
     "scanned": [],
-    "resonance_used": true,
-    "pr_attack": {
-      "status": "merged",
-      "enemy_id": "enemy_gen7",
-      "deadline_turn": 13,
-      "damage_since": 0,
-      "pr_number": 37,
-      "branch": "boss-attack-enemy_gen7-t11",
-      "break_need": 90
-    }
+    "resonance_used": false,
+    "pr_attack": null
   },
   "processed_issues": [
     1,
@@ -123,7 +114,8 @@
     38,
     39,
     40,
-    41
+    41,
+    42
   ],
   "stats": {
     "victories": 7,

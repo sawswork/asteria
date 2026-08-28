@@ -4,12 +4,12 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-💀 「夜哭きの梟との戦い」で敗北……次のターン送信で再挑戦できる。
-
-👁 宿敵**夜哭きの梟**が待ち構えている——次の戦いで必ず現れる。
+⚔️ 戦闘中: **宿敵・夜哭きの梟との再戦**(ターン2)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード](assets/board.svg?v=i41-a0)
+![戦闘シーン](assets/scene.svg?v=i42-a0)
+
+![戦況ボード](assets/board.svg?v=i42-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド

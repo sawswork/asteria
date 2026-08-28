@@ -4,22 +4,16 @@
   "name": "リュノ",
   "title": "星詠み",
   "max_hp": 106,
-  "hp": 0,
+  "hp": 106,
   "atk": 13,
   "def": 12,
   "agi": 15,
-  "ult_gauge": 0,
-  "hate": 37.0,
+  "ult_gauge": 25,
+  "hate": 6.0,
   "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
-  "dots": [
-    {
-      "damage": 25,
-      "turns_left": 1,
-      "source": "哭声"
-    }
-  ],
+  "dots": [],
   "field_tags": [],
   "slots": {
     "ability1": "ryuno_gen3",
@@ -38,10 +32,10 @@
     },
     "ability3": {
       "ready_in": 0,
-      "battle_uses": 4
+      "battle_uses": 0
     },
     "ultimate": {
-      "battle_uses": 2
+      "battle_uses": 0
     }
   }
 }
