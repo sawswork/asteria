@@ -1,0 +1,33 @@
+name: tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name (e.g. v0.1-m1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: asteria-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Create milestone tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          git config user.name "rpg-engine[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "milestone tag $TAG"
+          git push origin "refs/tags/$TAG"
