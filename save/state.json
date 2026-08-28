@@ -3,7 +3,7 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 0
+    "counter": 8
   },
   "party": [
     {
@@ -12,7 +12,7 @@
       "name": "ソラ",
       "title": "星剣士",
       "max_hp": 95,
-      "hp": 95,
+      "hp": 84,
       "atk": 16,
       "def": 8,
       "agi": 14,
@@ -29,7 +29,7 @@
             }
           ],
           "desc": "星光をまとった刺突。威力1.6倍",
-          "ready_in": 0
+          "ready_in": 1
         },
         {
           "id": "sora_a2",
@@ -75,9 +75,15 @@
         ],
         "desc": "彗星の如き一閃。威力3.4倍"
       },
-      "ult_gauge": 0,
-      "hate": 5.0,
-      "buffs": []
+      "ult_gauge": 25,
+      "hate": 26.0,
+      "buffs": [
+        {
+          "stat": "atk",
+          "mult": 1.2,
+          "turns_left": 1
+        }
+      ]
     },
     {
       "id": "ryuno",
@@ -104,7 +110,7 @@
             }
           ],
           "desc": "2ターンの間、全員の攻撃1.2倍",
-          "ready_in": 0
+          "ready_in": 2
         },
         {
           "id": "ryuno_a2",
@@ -158,9 +164,15 @@
         ],
         "desc": "2ターンの間、全員の攻撃1.35倍・防御1.25倍"
       },
-      "ult_gauge": 0,
-      "hate": 5.0,
-      "buffs": []
+      "ult_gauge": 15,
+      "hate": 10.0,
+      "buffs": [
+        {
+          "stat": "atk",
+          "mult": 1.2,
+          "turns_left": 1
+        }
+      ]
     },
     {
       "id": "gante",
@@ -184,7 +196,7 @@
             }
           ],
           "desc": "敵の狙いを自分に強制固定(2ターン)",
-          "ready_in": 0
+          "ready_in": 2
         },
         {
           "id": "gante_a2",
@@ -250,9 +262,15 @@
         ],
         "desc": "防御1.6倍+挑発ロック+大ヘイト"
       },
-      "ult_gauge": 0,
-      "hate": 5.0,
-      "buffs": []
+      "ult_gauge": 15,
+      "hate": 102.0,
+      "buffs": [
+        {
+          "stat": "atk",
+          "mult": 1.2,
+          "turns_left": 1
+        }
+      ]
     },
     {
       "id": "mio",
@@ -320,13 +338,72 @@
         ],
         "desc": "全員を大回復(2.5倍)"
       },
-      "ult_gauge": 0,
-      "hate": 5.0,
-      "buffs": []
+      "ult_gauge": 25,
+      "hate": 11.0,
+      "buffs": [
+        {
+          "stat": "atk",
+          "mult": 1.2,
+          "turns_left": 1
+        }
+      ]
     }
   ],
-  "battle": null,
-  "processed_issues": [],
+  "battle": {
+    "active": true,
+    "name": "星蝕の仔狼との遭遇",
+    "turn": 2,
+    "enemies": [
+      {
+        "id": "m1_wolf",
+        "name": "星蝕の仔狼",
+        "title": "蝕まれし獣",
+        "max_hp": 240,
+        "hp": 213,
+        "atk": 14,
+        "def": 9,
+        "agi": 11,
+        "actions": {
+          "normal": {
+            "name": "噛みつき",
+            "effects": [
+              {
+                "tag": "damage",
+                "power": 1.0,
+                "target": "enemy"
+              }
+            ]
+          },
+          "strong": {
+            "name": "星蝕の牙",
+            "effects": [
+              {
+                "tag": "damage",
+                "power": 1.5,
+                "target": "enemy"
+              }
+            ]
+          }
+        },
+        "buffs": []
+      }
+    ],
+    "result": null,
+    "taunt_holder_id": "gante",
+    "taunt_turns_left": 1,
+    "recent_log": [
+      "夜空の欠片が墜ちた森で、星を喰らう仔狼が唸りを上げた。",
+      "—— ターン1 ——",
+      "ソラの星技「星走り」! 星蝕の仔狼に21ダメージ!",
+      "リュノの星技「星の勇歌」! 全員の攻撃が1.2倍(2ターン)!",
+      "星蝕の仔狼の噛みつき! ソラに11ダメージ!",
+      "ミオの攻撃! 星蝕の仔狼に6ダメージ!",
+      "ガンテの星技「挑発の雄叫び」! 敵の狙いを2ターンの間、自分に固定した!"
+    ]
+  },
+  "processed_issues": [
+    1
+  ],
   "journal": [
     "旅が始まった。"
   ],

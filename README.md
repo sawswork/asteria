@@ -4,10 +4,10 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-🏕 拠点で休息中。ターンを送信すると冒険が始まる。
+⚔️ 戦闘中: **星蝕の仔狼との遭遇**(ターン2)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード](assets/board.svg)
+![戦況ボード](assets/board.svg?v=t1-i1)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
