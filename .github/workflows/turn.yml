@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   issues: write
+  pull-requests: write  # M4: ボスのPR攻撃(実PRの作成・強制マージ・クローズ)
 
 concurrency:
   group: asteria-turn

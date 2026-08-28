@@ -58,6 +58,14 @@ def restore_paths(sha: str, paths: list[str], cwd: str = ".") -> None:
     _git("checkout", sha, "--", *paths, cwd=cwd)
 
 
+def is_tracked(path: str, cwd: str = ".") -> bool:
+    """path がgit管理下にあるか(削除のステージ可否の判定に使う)。"""
+    try:
+        return bool(_git("ls-files", "--", path, cwd=cwd).strip())
+    except GitError:
+        return False
+
+
 def list_files(sha: str, path: str, cwd: str = ".") -> list[str]:
     """コミット sha 時点で path 配下にあるファイルの相対パス一覧。"""
     out = _git("ls-tree", "-r", "--name-only", sha, "--", path, cwd=cwd)

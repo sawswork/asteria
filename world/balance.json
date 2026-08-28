@@ -92,6 +92,7 @@
     "max_bonus": 30.0
   },
   "elite_every_battles": 4,
+  "boss_every_battles": 8,
   "recruit_every_victories": 3,
   "field": {
     "cost_per_turn": 6,
@@ -120,6 +121,10 @@
   "pr_attack": {
     "hp_trigger_ratio": 0.6,
     "deadline_turns": 3,
-    "break_damage": 90
+    "break_damage": 90,
+    "override": {
+      "damage": {"def_coeff": 0.1},
+      "heal": {"variance_min": 0.7, "variance_max": 0.9}
+    }
   }
 }

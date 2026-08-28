@@ -346,8 +346,11 @@ def fallback_enemy(save: Save, world: dict[str, Any], balance: dict[str, Any], r
 
 def next_battle_tier(save: Save, balance: dict[str, Any]) -> str:
     battles = save.stats.get("victories", 0) + 1
+    boss_every = int(balance.get("boss_every_battles", 8))
     elite_every = int(balance.get("elite_every_battles", 4))
-    return "elite" if battles % elite_every == 0 else "standard"
+    if boss_every > 0 and battles % boss_every == 0:
+        return "boss"
+    return "elite" if elite_every > 0 and battles % elite_every == 0 else "standard"
 
 
 def generate_enemy(

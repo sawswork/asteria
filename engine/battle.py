@@ -274,6 +274,43 @@ def _check_evolution_triggers(ctx: _Ctx) -> None:
             _log(ctx, f"⚠ {e.name}の身体が軋み、力が渦を巻いている……(進化の前兆)")
 
 
+def _check_pr_attack(ctx: _Ctx) -> None:
+    """ボスの禁忌詠唱(PR攻撃)の状態遷移。実PRの作成・マージ・クローズはrunnerのI/O境界が行う。
+
+    trigger: boss層がHP60%割れで一度だけ "pending"(runnerが実PRを開いて "casting" へ)。
+    casting: 詠唱ボスへの合計ダメージが閾値に達すれば "broken"、期限ターンに達すれば "deadline"。
+    """
+    pa = ctx.balance.get("pr_attack", {})
+    battle = ctx.battle
+    pr = battle.pr_attack
+    if pr is None:
+        ratio = float(pa.get("hp_trigger_ratio", 0.6))
+        for e in battle.enemies:
+            if e.tier == "boss" and e.alive and e.hp <= e.max_hp * ratio:
+                battle.pr_attack = {"status": "pending", "enemy_id": e.id}
+                _log(
+                    ctx,
+                    f"⚠ {e.name}は星の理を歪める禁忌の詠唱を始めた——PRを封じるか、打ち破るしかない!",
+                )
+                break
+        return
+    if pr.get("status") == "casting":
+        dealt = int(pr.get("damage_since", 0))
+        need = int(pa.get("break_damage", 90))
+        deadline = int(pr.get("deadline_turn", battle.turn))
+        if dealt >= need:
+            pr["status"] = "broken"
+            _log(ctx, f"💥 詠唱中に合計{dealt}ダメージ! 禁忌の詠唱を打ち破った!")
+        elif battle.turn >= deadline:
+            pr["status"] = "deadline"
+            _log(ctx, "🕳 詠唱が完成へ向かう——PRが閉じられていなければ、星の理が歪む……")
+        else:
+            _log(
+                ctx,
+                f"🕳 禁忌の詠唱は続く(打破まであと{need - dealt}ダメージ/猶予{deadline - battle.turn}ターン)",
+            )
+
+
 def _resolve_pending_evolutions(ctx: _Ctx) -> None:
     """予告済みの進化をターン開始時に実体化する。
 
@@ -403,8 +440,8 @@ def _apply_member_damage(
     _log(ctx, f"{actor.name}の{source_name}! {target.name}に{suffix}{total}ダメージ!{shield_note}")
     actor.hate += total * float(ctx.balance["hate"]["damage_mult"])
     pr = ctx.battle.pr_attack
-    if pr and pr.get("status") == "casting":
-        pr["damage_since"] = int(pr.get("damage_since", 0)) + total  # PR攻撃のブレイク判定用
+    if pr and pr.get("status") == "casting" and target.id == pr.get("enemy_id"):
+        pr["damage_since"] = int(pr.get("damage_since", 0)) + total  # PR攻撃のブレイク判定用(詠唱ボスへの直接ダメージのみ)
     if not target.alive:
         _log(ctx, f"{target.name}を撃破!")
         if source is not None:
@@ -776,6 +813,7 @@ def _end_of_turn(ctx: _Ctx) -> None:
             t.turns_left -= 1
         unit.field_tags = [t for t in unit.field_tags if t.turns_left > 0]
     _check_evolution_triggers(ctx)
+    _check_pr_attack(ctx)
     if ctx.battle.taunt_turns_left > 0:
         ctx.battle.taunt_turns_left -= 1
         if ctx.battle.taunt_turns_left == 0:

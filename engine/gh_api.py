@@ -72,6 +72,60 @@ class GhApi:
             {"state": "closed", "state_reason": "completed"},
         )
 
+    # ---- PR攻撃(実PRの作成・監視・強制マージ) ----------------------------
+
+    def get_branch_sha(self, branch: str) -> str:
+        ref = self._request("GET", f"/repos/{self.repo_slug}/git/ref/heads/{branch}")
+        return str(ref["object"]["sha"])
+
+    def create_branch(self, name: str, sha: str) -> None:
+        self._request(
+            "POST", f"/repos/{self.repo_slug}/git/refs", {"ref": f"refs/heads/{name}", "sha": sha}
+        )
+
+    def put_file(self, path: str, text: str, message: str, branch: str) -> None:
+        import base64
+
+        content = base64.b64encode(text.encode("utf-8")).decode("ascii")
+        self._request(
+            "PUT",
+            f"/repos/{self.repo_slug}/contents/{path}",
+            {"message": message, "content": content, "branch": branch},
+        )
+
+    def create_pull(self, title: str, body: str, head: str, base: str) -> int:
+        pr = self._request(
+            "POST",
+            f"/repos/{self.repo_slug}/pulls",
+            {"title": title, "body": body, "head": head, "base": base},
+        )
+        return int(pr["number"])
+
+    def get_pull(self, number: int) -> dict[str, Any]:
+        """{"state": "open"|"closed", "merged": bool} を返す。"""
+        pr = self._request("GET", f"/repos/{self.repo_slug}/pulls/{number}")
+        return {"state": str(pr.get("state", "unknown")), "merged": bool(pr.get("merged", False))}
+
+    def merge_pull(self, number: int, title: str) -> bool:
+        try:
+            self._request(
+                "PUT",
+                f"/repos/{self.repo_slug}/pulls/{number}/merge",
+                {"merge_method": "merge", "commit_title": title},
+            )
+            return True
+        except RuntimeError:
+            return False
+
+    def close_pull(self, number: int) -> None:
+        self._request("PATCH", f"/repos/{self.repo_slug}/pulls/{number}", {"state": "closed"})
+
+    def delete_branch(self, name: str) -> None:
+        try:
+            self._request("DELETE", f"/repos/{self.repo_slug}/git/refs/heads/{name}")
+        except RuntimeError:
+            pass  # 掃除は失敗しても続行
+
     def add_labels(self, issue_number: int, labels: list[str]) -> None:
         try:
             self._request(
