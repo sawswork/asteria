@@ -20,7 +20,12 @@ def _prefill_link(repo_slug: str, fields: dict[str, str]) -> str:
 
 
 def render_readme(
-    save: Save, world: dict[str, Any], repo_slug: str, cache_key: str, has_scene: bool = False
+    save: Save,
+    world: dict[str, Any],
+    repo_slug: str,
+    cache_key: str,
+    has_scene: bool = False,
+    has_book: bool = False,
 ) -> str:
     world_name = str(world["world_name"])
     tagline = str(world.get("tagline", ""))
@@ -52,6 +57,10 @@ def render_readme(
     generate_url = f"https://github.com/{repo_slug}/issues/new?template=generate.yml"
     update_url = f"https://github.com/{repo_slug}/issues/new?template=update.yml"
     rewind_url = f"https://github.com/{repo_slug}/issues/new?template=rewind.yml"
+    book_url = f"https://github.com/{repo_slug}/issues/new?template=book.yml"
+    book_link = ""
+    if has_book:
+        book_link = f"\n\n📖 これまでの旅は [1冊の書物](https://github.com/{repo_slug}/blob/main/book/journey.md) に綴じられている。"
 
     if save.battle and save.battle.active:
         status = f"⚔️ 戦闘中: **{save.battle.name}**(ターン{save.battle.turn})"
@@ -105,6 +114,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 | ✨ **[技生成の儀式]({generate_url})** | 生成権(残り**{spell_tokens}**)を使い、詠唱文から新しい技を紡ぐ |
 | 🔮 **[技アップデート]({update_url})** | 使い込んだ技の進化3案から選ぶ |
 | ⏪ **[時戻しの儀式]({rewind_url})** | 生成権1を砕き、今の戦いの始まりへ時を巻き戻す(戦闘中のみ) |
+| 📖 **[旅の書を編む]({book_url})** | これまでの記録を1冊の書物へ編み直す(何度でも) |
 
 送信後、数十秒でこのページのボードが更新される(結果はIssueにも返信される)。
 現在: **Lv{level}**(XP {xp})/ 技生成権 **{spell_tokens}** / 控えメンバー {roster_count}人
@@ -121,7 +131,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 
 {journal_tail}
 
-これまでの勝利数: **{victories}**
+これまでの勝利数: **{victories}**{book_link}
 
 ---
 

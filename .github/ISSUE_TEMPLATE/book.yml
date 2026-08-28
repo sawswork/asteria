@@ -1,0 +1,19 @@
+name: 📖 旅の書を編む
+description: これまでの年代記を1冊の書物へ編み直す(何度でも行える。セーブは変わらない)
+title: "[BOOK] 旅の書"
+labels: ["turn"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        これまでの出来事の記録(save/chronicle/)を、物語として book/journey.md へ綴ります。
+        記録は改変されません。勝敗も数値も、起きたとおりに書かれます。
+        章が多いときは一度に編む数に上限があるので、もう一度行うと続きから編みます。
+  - type: dropdown
+    id: confirm
+    attributes:
+      label: 確認
+      options: ["旅の書を編む"]
+      default: 0
+    validations:
+      required: true

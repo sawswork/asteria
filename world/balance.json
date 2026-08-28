@@ -205,5 +205,9 @@
       }
     }
   },
-  "full_auto_heal_threshold": 0.6
+  "full_auto_heal_threshold": 0.6,
+  "book": {
+    "max_ai_chapters_per_run": 8,
+    "chapter_source_chars": 8000
+  }
 }
