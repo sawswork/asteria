@@ -4,12 +4,15 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-⚔️ 戦闘中: **夜哭きの梟との戦い**(ターン9)
+⚔️ 戦闘中: **夜哭きの梟との戦い**(ターン11)
+
+🕳 **ボスが禁忌の詠唱中!** [PR #37](https://github.com/sawswork/asteria/pull/37) が星の理を歪めようとしている(猶予**2ターン**)。
+ボスを削って打ち破るか、**[PR #37](https://github.com/sawswork/asteria/pull/37) を手動でクローズして封じる**かのどちらかを——放置すると強制マージされる。
 
 <!-- GAME:BOARD:BEGIN -->
-![戦闘シーン](assets/scene.svg?v=i35-a0)
+![戦闘シーン](assets/scene.svg?v=i36-a0)
 
-![戦況ボード](assets/board.svg?v=i35-a0)
+![戦況ボード](assets/board.svg?v=i36-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド

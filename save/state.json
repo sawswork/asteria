@@ -3,19 +3,19 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 448
+    "counter": 464
   },
   "battle": {
     "active": true,
     "name": "夜哭きの梟との戦い",
-    "turn": 9,
+    "turn": 11,
     "enemies": [
       {
         "id": "enemy_gen7",
         "name": "夜哭きの梟",
         "title": "静寂を裂く声",
         "max_hp": 704,
-        "hp": 445,
+        "hp": 422,
         "atk": 41,
         "def": 28,
         "agi": 12,
@@ -51,7 +51,7 @@
         "tier": "boss",
         "intelligent": true,
         "xp": 320,
-        "last_special_turn": 6,
+        "last_special_turn": 9,
         "field_tags": [],
         "weaknesses": [],
         "evolutions": [],
@@ -61,23 +61,30 @@
       }
     ],
     "result": null,
-    "taunt_holder_id": "gante",
-    "taunt_turns_left": 1,
+    "taunt_holder_id": null,
+    "taunt_turns_left": 0,
     "recent_log": [
-      "(梟の鋭い眼光がミオに集中する。狡猾な獲食者は、瀕死のヒーラーという最大の脅威をよく理解している。)",
-      "—— ターン8 ——",
-      "ソラの星技「星穿ち」! 夜哭きの梟に58ダメージ!",
+      "—— ターン10 ——",
+      "ソラの星技「二連流星」! 夜哭きの梟に2連撃で11ダメージ!",
       "リュノの星技「流星の矢」! 夜哭きの梟に1ダメージ!",
-      "夜哭きの梟「矢の射手よ、その腕も俺を傷つけられまい」",
-      "夜哭きの梟の風切り爪! ソラに33ダメージ!",
-      "ガンテの奥義《不動の星砦》! ガンテの防御が1.6倍(2ターン)!",
-      "ガンテの奥義《不動の星砦》! 敵の狙いを2ターンの間、自分に固定した!",
-      "ガンテは敵の注意を引いた(ヘイト+40)。",
-      "(夜哭きの梟は狙いを定める。既に癒し手は落ち、今は火力を削るのが道理。)"
+      "夜哭きの梟「逃がしてたまるか…」",
+      "夜哭きの梟の風切り爪! ソラに37ダメージ!",
+      "ガンテの星技「星盾強打」! 夜哭きの梟に1ダメージ!",
+      "ガンテは敵の注意を引いた(ヘイト+20)。",
+      "ガンテは継続ダメージで25を受けた!",
+      "⚠ 夜哭きの梟は星の理を歪める禁忌の詠唱を始めた——PRを封じるか、打ち破るしかない!",
+      "(狡猾な梟は翅を広げ、瀕死のソラへ容赦なく襲いかかる)"
     ],
     "scanned": [],
     "resonance_used": true,
-    "pr_attack": null
+    "pr_attack": {
+      "status": "casting",
+      "enemy_id": "enemy_gen7",
+      "deadline_turn": 13,
+      "damage_since": 0,
+      "pr_number": 37,
+      "branch": "boss-attack-enemy_gen7-t11"
+    }
   },
   "processed_issues": [
     1,
@@ -110,7 +117,8 @@
     32,
     33,
     34,
-    35
+    35,
+    36
   ],
   "stats": {
     "victories": 7,

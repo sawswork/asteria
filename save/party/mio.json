@@ -27,7 +27,7 @@
       "battle_uses": 2
     },
     "ability2": {
-      "ready_in": 2,
+      "ready_in": 0,
       "battle_uses": 1
     },
     "ability3": {
