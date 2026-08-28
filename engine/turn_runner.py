@@ -591,6 +591,17 @@ def _handle_rewind(save: Save, body: str, balance: dict[str, Any], root: str, re
     # 処理済みIssueは現在の記録と統合する(巻き戻しで過去のIssueが未処理に戻らないように)
     restored.processed_issues = list(dict.fromkeys([*restored.processed_issues, *save.processed_issues]))
     del restored.processed_issues[:-PROCESSED_ISSUES_MAX]
+    # PR攻撃は「戦場の外」で起きている(実PRとマージ済みの歪みは巻き戻せない)。
+    # 状態は現在のものを引き継ぎ、猶予ターンだけ戻した時間に合わせて張り直す。
+    # 与えたダメージは無かったことになるので蓄積はリセット(時戻しでの削り稼ぎを防ぐ)。
+    if save.battle is not None and save.battle.pr_attack and restored.battle is not None:
+        carried = dict(save.battle.pr_attack)
+        if "deadline_turn" in carried:
+            remaining = int(carried["deadline_turn"]) - save.battle.turn
+            carried["deadline_turn"] = restored.battle.turn + max(0, remaining)
+        carried["damage_since"] = 0
+        restored.battle.pr_attack = carried
+        restored.battle.recent_log.append("……だが、既に開かれた禁忌の門は時を遡らない。")
     restored.journal.append(
         f"時戻しの星片を砕いた——「{current_name}」の記録最古の時点(ターン{target_turn})へ(技生成権-1)"
     )

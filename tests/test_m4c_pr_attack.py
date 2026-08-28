@@ -235,3 +235,36 @@ def test_next_battle_tier_boss_cadence(fresh_save, balance):
     assert next_battle_tier(fresh_save, balance) == "elite"
     fresh_save.stats["victories"] = 4
     assert next_battle_tier(fresh_save, balance) == "standard"
+
+
+def test_rewind_carries_pr_attack_forward(tmp_path):
+    """時戻ししてもPR攻撃は巻き戻らない(猶予は据え置き・削りはリセット)。"""
+    from engine.save_io import load_save, write_save
+    from engine.turn_runner import process_issue
+    from tests.test_turn_runner import _setup_git, all_normal, body_from, make_issue
+
+    root = make_root(tmp_path / "work")
+    save = load_save(root / "save")
+    save.spell_tokens = 1
+    write_save(save, root / "save")
+    _setup_git(tmp_path, root)
+    gh = FakeGhApi()
+    process_issue(make_issue(1, body_from(all_normal())), REPO, str(root), do_git=True, gh=gh)
+    process_issue(make_issue(2, body_from(all_normal())), REPO, str(root), do_git=True, gh=gh)
+
+    mid = load_save(root / "save")
+    assert mid.battle.turn == 3
+    mid.battle.pr_attack = {
+        "status": "casting", "enemy_id": mid.battle.enemies[0].id,
+        "deadline_turn": 5, "damage_since": 70, "pr_number": 77, "branch": "b",
+    }
+    write_save(mid, root / "save")
+    process_issue(
+        make_issue(3, "### 確認\n\n時を戻す(技生成権を1消費)\n", title="[REWIND] 時戻しの儀式"),
+        REPO, str(root), do_git=True, gh=gh,
+    )
+    after = load_save(root / "save")
+    pr = after.battle.pr_attack
+    assert pr is not None and pr["status"] == "casting" and pr["pr_number"] == 77
+    assert pr["damage_since"] == 0  # 与ダメージは無かったことになる
+    assert pr["deadline_turn"] - after.battle.turn == 2  # 猶予(5-3=2ターン)は据え置き
