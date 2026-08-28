@@ -245,3 +245,46 @@ def build_recruit_prompt(save: Save, world: dict[str, Any], role: str) -> str:
 
 返すJSON: {{"name","title","role":"{role}","personality","background","battle_cry","abilities":[技×3],"ultimate":技}}
 {_JSON_ONLY}"""
+
+
+def build_book_chapter_prompt(world: dict[str, Any], chapter_no: int, source: str) -> str:
+    """1章分の記録を物語として綴らせる。記録の改変は禁じる。"""
+    return f"""あなたは年代記を書物へ編む記録者。以下は実際に起きた出来事の記録です。これを一章の物語として綴り、JSONで返す。
+
+{_world_header(world)}
+
+第{chapter_no}章の記録:
+---
+{source}
+---
+
+守ること:
+- **記録を改変しない**。勝敗・数値・誰が何をしたかは記録のとおりに。起きていない出来事を足さない
+- ログの羅列ではなく地の文で語る。戦いの流れ・転機・人物の息づかいが伝わるように
+- 技名・敵名・地名は記録に現れたものだけを使う
+- title は章の題(30文字以内)。text は本文(2400文字以内・日本語)
+
+返すJSON: {{"title": "...", "text": "..."}}
+{_JSON_ONLY}"""
+
+
+def build_book_frame_prompt(world: dict[str, Any], save: Save, chapter_titles: list[str]) -> str:
+    """書物の表題・序文・終章。"""
+    titles = "\n".join(f"- 第{i + 1}章 {t}" for i, t in enumerate(chapter_titles))
+    stats = save.stats
+    return f"""あなたは年代記を書物へ編む記録者。以下の旅路に、書物の表題・序文・終章を与え、JSONで返す。
+
+{_world_header(world)}
+{_journal_tail(save, 12)}
+
+到達点: Lv{save.level} / 勝利{stats.get("victories", 0)}・敗北{stats.get("defeats", 0)} / 仲間{len(save.party) + len(save.roster_extra)}人
+
+章立て:
+{titles}
+
+守ること:
+- 記録にない出来事を足さない。序文は旅の始まりへの導入、終章は今この時点からの結び
+- title は書物の題(30文字以内)。preface / epilogue はそれぞれ900文字以内
+
+返すJSON: {{"title": "...", "preface": "...", "epilogue": "..."}}
+{_JSON_ONLY}"""

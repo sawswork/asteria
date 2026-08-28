@@ -213,3 +213,27 @@ RECRUIT_SCHEMA: dict[str, Any] = {
     "required": ["name", "role", "personality", "background", "abilities", "ultimate"],
     "additionalProperties": False,
 }
+
+
+# 書籍化: 章の語り(数値や勝敗を変えさせない。あくまで記録を物語として綴らせる)
+BOOK_CHAPTER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string", "minLength": 1, "maxLength": 30},
+        "text": {"type": "string", "minLength": 1, "maxLength": 2400},
+    },
+    "required": ["title", "text"],
+    "additionalProperties": False,
+}
+
+# 書籍化: 表題・序文・終章
+BOOK_FRAME_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string", "minLength": 1, "maxLength": 30},
+        "preface": {"type": "string", "maxLength": 900},
+        "epilogue": {"type": "string", "maxLength": 900},
+    },
+    "required": ["title", "preface", "epilogue"],
+    "additionalProperties": False,
+}

@@ -22,10 +22,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from . import ai_schemas, prompts
 from . import battle as battle_mod
 from . import board as board_mod
+from . import book as book_mod
 from . import chronicle, generation, gitops, screen, turn_ai
-from .ai_client import AiClient
+from .ai_client import AiClient, AiError
 from .commands import (
     ABILITY_INDEX,
     ACTION_NORMAL,
@@ -54,7 +56,8 @@ TITLE_TURN = "[TURN]"
 TITLE_GENERATE = "[GENERATE]"
 TITLE_UPDATE = "[UPDATE]"
 TITLE_REWIND = "[REWIND]"
-TITLE_PREFIXES = (TITLE_TURN, TITLE_GENERATE, TITLE_UPDATE, TITLE_REWIND)
+TITLE_BOOK = "[BOOK]"
+TITLE_PREFIXES = (TITLE_TURN, TITLE_GENERATE, TITLE_UPDATE, TITLE_REWIND, TITLE_BOOK)
 
 PROCESSED_ISSUES_MAX = 500
 LABEL_PROCESSED = "turn"
@@ -112,6 +115,8 @@ def _write_chronicle(
 
     失敗しても冒険は止めない——記録は大切だが、進行を人質に取るほどではない。
     """
+    if not heading.strip() or not body.strip():
+        return  # 記録に値しない行為(書物の編纂など)は年代記に足さない
     try:
         chapter = chronicle.chapter_number(save.stats, bool(save.battle and save.battle.active))
         path = root_path / SAVE_DIR / chronicle.CHRONICLE_DIR / chronicle.chapter_filename(chapter)
@@ -138,6 +143,122 @@ def _append_chronicle_outcome(root_path: Path, save: Save, result: str, turn_no:
             path.write_text(text.rstrip() + "\n" + mark, encoding="utf-8")
     except OSError as e:
         print(f"chronicle: outcome write failed ({type(e).__name__}: {e})")
+
+
+def _compile_book(
+    root_path: Path, save: Save, world: dict[str, Any], balance: dict[str, Any], ai: AiClient
+) -> tuple[str, int, int]:
+    """年代記を書物へ編む。(書物のパス, 今回編んだ章数, 全章数)。
+
+    章ごとの語りは book/chapters/ にキャッシュし、1回の実行で編む数に上限を設ける
+    (章が増えてもジョブ時間が伸びない。続きは再実行で編める)。
+    """
+    cfg = balance.get("book", {})
+    per_run = int(cfg.get("max_ai_chapters_per_run", 8))
+    src_limit = int(cfg.get("chapter_source_chars", 8000))
+
+    chapter_dir = root_path / SAVE_DIR / chronicle.CHRONICLE_DIR
+    sources = sorted(chapter_dir.glob("chapter-*.md")) if chapter_dir.exists() else []
+    narrated_dir = root_path / book_mod.NARRATED_DIR
+    narrated_dir.mkdir(parents=True, exist_ok=True)
+
+    compiled = 0
+    chapters: list[str] = []
+    titles: list[str] = []
+    for index, src_path in enumerate(sources, start=1):
+        source = src_path.read_text(encoding="utf-8")
+        out_path = narrated_dir / src_path.name
+        existing = out_path.read_text(encoding="utf-8") if out_path.exists() else ""
+        if existing and not book_mod.is_stale(existing, source):
+            chapters.append(book_mod.strip_marker(existing))
+            titles.append(_book_title_of(existing))
+            continue
+        if compiled >= per_run:  # 上限に達した分は記録のまま収める(欠落を作らない)
+            chapters.append(book_mod.raw_chapter(f"第{index}章", source))
+            titles.append(f"第{index}章")
+            continue
+        try:
+            resp = ai.call(
+                "book_chapter",
+                prompts.build_book_chapter_prompt(world, index, book_mod.trim_source(source, src_limit)),
+                ai_schemas.BOOK_CHAPTER_SCHEMA,
+                purpose="generation",
+            )
+            text = book_mod.narrated_text(str(resp["title"]), str(resp["text"]), source)
+            out_path.write_text(text, encoding="utf-8")
+            chapters.append(book_mod.strip_marker(text))
+            titles.append(str(resp["title"]))
+            compiled += 1
+        except (AiError, KeyError, OSError) as e:
+            print(f"book: chapter {index} not compiled ({type(e).__name__}); keeping the record")
+            chapters.append(book_mod.raw_chapter(f"第{index}章", source))
+            titles.append(f"第{index}章")
+
+    frame = {"title": f"{world.get('world_name', '')}の旅の書".strip(), "preface": "", "epilogue": ""}
+    try:
+        frame = dict(
+            ai.call(
+                "book_frame",
+                prompts.build_book_frame_prompt(world, save, titles),
+                ai_schemas.BOOK_FRAME_SCHEMA,
+                purpose="generation",
+            )
+        )
+    except (AiError, KeyError) as e:
+        print(f"book: frame not compiled ({type(e).__name__}); using a plain title")
+
+    spells = _grimoire(root_path)
+    text = book_mod.assemble(frame, chapters, spells, save.journal)
+    out = root_path / book_mod.BOOK_PATH
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8")
+    return book_mod.BOOK_PATH, compiled, len(sources)
+
+
+def _book_title_of(narrated: str) -> str:
+    for line in narrated.splitlines():
+        if line.startswith("## "):
+            return line[3:].strip()
+    return "無題"
+
+
+def _grimoire(root_path: Path) -> list[dict[str, Any]]:
+    """魔導書(この旅で紡がれた技)。生成技だけを名前順で拾う。"""
+    spells_dir = root_path / SAVE_DIR / "spells"
+    if not spells_dir.is_dir():
+        return []
+    out: list[dict[str, Any]] = []
+    for path in sorted(spells_dir.glob("*_gen*.json")):
+        try:
+            out.append(load_json(path))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return out
+
+
+def _handle_book(
+    save: Save, world: dict[str, Any], balance: dict[str, Any], ai: AiClient,
+    root: str, repo_slug: str, issue_number: int = 0,
+) -> tuple[Save, str, ChronicleEntry]:
+    """[BOOK] 旅の書を編む。セーブは変更しない(記録を読むだけの行為)。"""
+    chapter_dir = Path(root) / SAVE_DIR / chronicle.CHRONICLE_DIR
+    if not chapter_dir.exists() or not any(chapter_dir.glob("chapter-*.md")):
+        raise _Invalid(
+            f"## ⚠ まだ綴じる記録がありません\n\n冒険を進めると年代記が積まれます。\n\n{_links(repo_slug)}"
+        )
+    path, compiled, total = _compile_book(Path(root), save, world, balance, ai)
+    rest = ""
+    if compiled >= int(balance.get("book", {}).get("max_ai_chapters_per_run", 8)):
+        rest = "\n\n> 未編纂の章が残っています。もう一度この儀式を行うと続きから編みます。"
+    reply = (
+        f"## 📖 旅の書 — 編纂\n\n"
+        f"全{total}章のうち、今回{compiled}章を新たに編みました。\n\n"
+        f"**[{path} を読む](https://github.com/{repo_slug}/blob/main/{path})**{rest}\n\n"
+        f"{_links(repo_slug)}"
+    )
+    # 編纂は世界の出来事ではないので年代記に残さない。
+    # 残すと記録した章自身が変わり、次の編纂で必ず編み直しになってしまう
+    return save, reply, ChronicleEntry(heading="", body="")
 
 
 def _term(world: dict[str, Any], key: str, default: str = "") -> str:
@@ -1040,6 +1161,10 @@ def process_issue(
                 new_save, reply, entry = _handle_update(
                     save, body, world, balance, ai, repo_slug, number
                 )
+            elif title.startswith(TITLE_BOOK):
+                new_save, reply, entry = _handle_book(
+                    save, world, balance, ai, root, repo_slug, number
+                )
             elif title.startswith(TITLE_REWIND):
                 new_save, reply, entry = _handle_rewind(
                     save, body, world, balance, root, repo_slug, number
@@ -1088,6 +1213,8 @@ def process_issue(
         if do_git:
             gitops.configure_identity(root)
             commit_paths = [SAVE_DIR, ASSETS_DIR, README_PATH]
+            if (root_path / book_mod.BOOK_DIR).exists():
+                commit_paths.append(book_mod.BOOK_DIR)
             # PR攻撃のoverrideは生成/削除の両方をコミットに含める(未追跡かつ不在ならaddできないので外す)
             if (root_path / OVERRIDE_PATH).exists() or gitops.is_tracked(OVERRIDE_PATH, cwd=root):
                 commit_paths.append(OVERRIDE_PATH)
