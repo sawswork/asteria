@@ -204,6 +204,7 @@ def _reply_invalid_turn(errors: list[InvalidMove], repo_slug: str) -> str:
 # ---- [TURN] --------------------------------------------------------------
 
 _FULL_AUTO_RE = re.compile(r"フルオート\s*(\d+)")  # 自由記述「フルオート N」= 合計Nターンまで自動続行
+_JOB_STARTED = time.monotonic()  # プロセス起動時刻。フルオートの実時間打ち切りはジョブ全体を縛る
 
 
 def _evolution_overrides(
@@ -237,17 +238,18 @@ def _auto_commands(save: Save, balance: dict[str, Any]) -> dict[str, Command]:
         if m.ult_gauge >= ult_max and not m.ultimate.constraints:
             action = ACTION_ULT
         else:
-            for label, idx in ABILITY_INDEX.items():
-                a = m.abilities[idx]
-                if a.ready_in > 0 or a.constraints:
-                    continue
-                tags = {e.get("tag") for e in a.effects}
-                if need_heal and "heal" in tags:
-                    action = label
-                    break
-                if not need_heal and ("damage" in tags or "dot" in tags):
-                    action = label
-                    break
+            usable = [
+                (label, {e.get("tag") for e in m.abilities[idx].effects})
+                for label, idx in ABILITY_INDEX.items()
+                if m.abilities[idx].ready_in == 0 and not m.abilities[idx].constraints
+            ]
+            if need_heal:  # 回復手段を持つ者だけが回復に回り、他は攻撃を続ける
+                action = next((label for label, tags in usable if "heal" in tags), ACTION_NORMAL)
+            if action == ACTION_NORMAL:
+                action = next(
+                    (label for label, tags in usable if "damage" in tags or "dot" in tags),
+                    ACTION_NORMAL,
+                )
         cmds[m.role] = Command(role=m.role, action=action, target=TARGET_AUTO)
     return cmds
 
@@ -311,9 +313,9 @@ def _handle_turn(
     if auto_match:
         limit = max(1, min(int(auto_match.group(1)), int(balance.get("full_auto_max_turns", 8))))
         deadline_s = float(balance.get("full_auto_deadline_seconds", 720))
-        auto_started = time.monotonic()
         stopped_early = False
         boss_call = False
+        was_casting = bool(new_save.battle and new_save.battle.pr_attack)
         turns_done = 1
         while turns_done < limit and not report.result and new_save.battle and new_save.battle.active:
             auto_cmds = _auto_commands(new_save, balance)
@@ -322,13 +324,18 @@ def _handle_turn(
             new_save, report = _run_one(new_save, auto_cmds)
             all_lines.extend(report.lines)
             turns_done += 1
-            if time.monotonic() - auto_started > deadline_s:
+            if time.monotonic() - _JOB_STARTED > deadline_s:
                 # AI応答が遅い日でもジョブ制限に達しないよう、実時間で自動送りを打ち切る
                 stopped_early = True
                 break
-            if new_save.battle and new_save.battle.pr_attack:
-                # ボスの禁忌詠唱が始まったら自動送りを止めてプレイヤーに返す
-                # (自動送りのまま倒しきると、PR攻撃が一度も現れないまま終わってしまう)
+            if (
+                new_save.battle
+                and (new_save.battle.pr_attack or {}).get("status") == "pending"
+                and not was_casting
+            ):
+                # 詠唱が「始まった」瞬間だけ自動送りを止めてプレイヤーに返す
+                # (自動送りのまま倒しきるとPR攻撃が一度も現れない。一方で存在判定にすると
+                #  詠唱開始後は毎回1ターンで止まってしまう)
                 boss_call = True
                 break
         auto_note = f"🤖 フルオート: {turns_done}ターンを自動解決(指定{limit}ターン上限)"
