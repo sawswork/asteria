@@ -289,6 +289,30 @@ def test_over_budget_ai_spell_falls_back(tmp_path, fresh_save, world, balance):
     assert errors == []
 
 
+def test_rejected_spell_is_regenerated_with_feedback(tmp_path, fresh_save, world, balance):
+    """却下→再生成: 1案目が予算超過でも、2案目が通ればAI案を採用する。"""
+    fixtures = tmp_path / "fx"
+    fixtures.mkdir()
+    nuke = {"name": "禁断の星砲", "desc": "強すぎる", "ct": 1,
+            "effects": [{"tag": "damage", "power": 4.0, "hits": 3, "target": "enemy"}]}
+    modest = {"name": "星の小刀", "desc": "威力1.4倍の斬撃", "ct": 2,
+              "effects": [{"tag": "damage", "power": 1.4, "target": "enemy"}]}
+    (fixtures / "spell_gen.json").write_text(json.dumps([nuke, modest], ensure_ascii=False), encoding="utf-8")
+    ai = AiClient(mock=True, fixtures_dir=fixtures)
+    member = fresh_save.member_by_role("attacker")
+    spell, used_ai = generate_spell(fresh_save, world, balance, ai, member, "アビ1", "穿て", False)
+    assert used_ai is True
+    assert spell["name"] == "星の小刀"
+
+
+def test_fallback_name_cuts_at_punctuation(fresh_save, balance):
+    from engine.generation import fallback_spell
+
+    member = fresh_save.member_by_role("healer")
+    spell = fallback_spell(fresh_save, balance, member, "星の雫を一斉に降らせ、仲間全員を癒す歌を", False)
+    assert spell["name"] == "星の雫を一斉に降らせ"  # 読点の前で切る
+
+
 def test_out_of_tolerance_enemy_falls_back(tmp_path, fresh_save, world, balance):
     fixtures = tmp_path / "fx"
     fixtures.mkdir()

@@ -36,7 +36,13 @@ def fallback_spell(
 ) -> dict[str, Any]:
     """決定的なフォールバック技(役割テンプレ・予算内)。名前は詠唱文から採る。"""
     budget = budget_for(save.level, member.role, balance, is_ult)
-    name = (incantation.strip().splitlines()[0][:12] if incantation.strip() else "無銘の技")
+    if incantation.strip():
+        first_line = incantation.strip().splitlines()[0]
+        for sep in ("、", "。", ",", "."):  # 読点で切って自然な短い名前にする
+            first_line = first_line.split(sep)[0]
+        name = first_line[:12] or "無銘の技"
+    else:
+        name = "無銘の技"
     ct = 0 if is_ult else 2
     c = balance["effect_costs"]
     effects: list[dict[str, Any]]
@@ -63,6 +69,9 @@ def fallback_spell(
     return {"name": name, "desc": desc, "ct": ct, "effects": effects}
 
 
+SPELL_GEN_ATTEMPTS = 3  # AI生成の試行回数(却下時は理由を伝えて再生成)
+
+
 def generate_spell(
     save: Save,
     world: dict[str, Any],
@@ -73,16 +82,25 @@ def generate_spell(
     incantation: str,
     is_ult: bool,
 ) -> tuple[dict[str, Any], bool]:
-    """(技dict, AI採用か) を返す。AI案が検証を通らなければフォールバック。"""
-    prompt = prompts.build_spell_generation_prompt(
+    """(技dict, AI採用か) を返す。却下時は理由付きで再生成し、尽きたらフォールバック。"""
+    base_prompt = prompts.build_spell_generation_prompt(
         save, world, balance, member, slot_label, incantation, is_ult
     )
+    feedback = ""
     try:
-        spell = ai.call("spell_gen", prompt, ai_schemas.SPELL_GEN_SCHEMA, purpose="generation")
-        errors = validate_spell(spell, balance, save.level, member.role, is_ult)
-        if not errors:
-            return spell, True
-        print(f"generation: spell rejected ({len(errors)} errors); falling back")
+        for attempt in range(SPELL_GEN_ATTEMPTS):
+            spell = ai.call(
+                "spell_gen", base_prompt + feedback, ai_schemas.SPELL_GEN_SCHEMA, purpose="generation"
+            )
+            errors = validate_spell(spell, balance, save.level, member.role, is_ult)
+            if not errors:
+                return spell, True
+            print(f"generation: spell rejected ({len(errors)} errors); regenerating")
+            feedback = (
+                f"\n\n【再生成依頼】前回の案「{spell.get('name', '?')}」は検証で却下された: "
+                + " / ".join(errors[:2])
+                + "。数値をより控えめにして、制約を厳守した案を出し直すこと。"
+            )
     except AiError as e:
         print(f"generation: spell ai failed ({e}); falling back")
     except Exception as e:  # 検証中の想定外もフォールバックへ
