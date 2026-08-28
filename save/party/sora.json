@@ -4,7 +4,7 @@
   "name": "ソラ",
   "title": "星剣士",
   "max_hp": 116,
-  "hp": 46,
+  "hp": 10,
   "atk": 22,
   "def": 11,
   "agi": 17,
@@ -27,7 +27,7 @@
       "battle_uses": 2
     },
     "ability2": {
-      "ready_in": 2,
+      "ready_in": 1,
       "battle_uses": 2
     },
     "ability3": {

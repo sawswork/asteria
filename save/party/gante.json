@@ -8,7 +8,7 @@
   "atk": 12,
   "def": 21,
   "agi": 6,
-  "ult_gauge": 40,
+  "ult_gauge": 70,
   "hate": 664.0,
   "buffs": [],
   "shield": 0,
@@ -27,7 +27,7 @@
       "battle_uses": 0
     },
     "ability2": {
-      "ready_in": 1,
+      "ready_in": 0,
       "battle_uses": 2
     },
     "ability3": {
