@@ -34,7 +34,7 @@ def _write_screen(save, world, balance, root: Path, repo: str, cache_key: str) -
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="戦闘エンジン ローカルCLI")
     parser.add_argument("--input", help="ターンコマンドJSON(fixtures/turn.json 形式)")
-    parser.add_argument("--save", default="save/state.json")
+    parser.add_argument("--save", default="save", help="セーブディレクトリ")
     parser.add_argument("--world", default="world/world.json")
     parser.add_argument("--balance", default="world/balance.json")
     parser.add_argument("--root", default=".")

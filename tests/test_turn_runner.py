@@ -23,13 +23,22 @@ REPO = "owner/repo"
 OWNER = "owner"
 
 
+def _snapshot(root: Path) -> bytes:
+    """save/ 配下全ファイルの決定的スナップショット(冪等性の検証用)。"""
+    parts: list[bytes] = []
+    for f in sorted((root / "save").rglob("*")):
+        if f.is_file():
+            parts.append(str(f.relative_to(root)).encode() + b":" + f.read_bytes())
+    return b"".join(parts)
+
+
 def make_root(target: Path, seed: int = 999) -> Path:
     (target / "world").mkdir(parents=True)
     for name in ("world.json", "balance.json"):
         shutil.copy(ROOT / "world" / name, target / "world" / name)
     world = json.loads((target / "world/world.json").read_text(encoding="utf-8"))
     balance = json.loads((target / "world/balance.json").read_text(encoding="utf-8"))
-    write_save(new_save(world, balance, seed=seed), target / "save/state.json")
+    write_save(new_save(world, balance, seed=seed), target / "save")
     return target
 
 
@@ -57,7 +66,7 @@ def all_normal() -> dict[str, tuple[str, str]]:
 
 def _policy_commands(root: Path) -> dict[str, tuple[str, str]]:
     """セーブを読んで妥当な手を選ぶ簡易プレイヤー方針。"""
-    save = load_save(root / "save/state.json")
+    save = load_save(root / "save")
 
     def ready(role: str, idx: int) -> bool:
         return save.member_by_role(role).abilities[idx].ready_in == 0
@@ -107,7 +116,7 @@ def test_e2e_win_battle_from_forms(tmp_path):
     result = None
     for number in range(1, 21):
         run(root, make_issue(number, body_from(_policy_commands(root))))
-        save = load_save(root / "save/state.json")
+        save = load_save(root / "save")
         assert number in save.processed_issues
         turns += 1
         assert save.battle is not None
@@ -121,24 +130,24 @@ def test_e2e_win_battle_from_forms(tmp_path):
     assert "assets/board.svg" in readme
     # 勝利後にもう1ターン送ると新しい戦闘が始まる
     run(root, make_issue(99, body_from(_policy_commands(root))))
-    save = load_save(root / "save/state.json")
+    save = load_save(root / "save")
     assert save.battle.active and save.battle.turn == 2
 
 
 def test_defeat_path_and_rematch(tmp_path):
     root = make_root(tmp_path)
     run(root, make_issue(1, body_from(all_normal())))  # 戦闘開始+1ターン
-    save = load_save(root / "save/state.json")
+    save = load_save(root / "save")
     for m in save.party:
         m.hp = 1
     save.battle.enemies[0].atk = 999
     save.battle.enemies[0].hp = 9999
-    write_save(save, root / "save/state.json")
+    write_save(save, root / "save")
 
     result = None
     for number in range(2, 10):
         run(root, make_issue(number, body_from(all_normal())))
-        save = load_save(root / "save/state.json")
+        save = load_save(root / "save")
         if save.battle.result:
             result = save.battle.result
             break
@@ -149,7 +158,7 @@ def test_defeat_path_and_rematch(tmp_path):
     assert "敗北" in (root / "README.md").read_text(encoding="utf-8")
     # 敗北後の次のターンで新しい戦闘が自動開始され、パーティは全快から1ターン進んでいる
     run(root, make_issue(50, body_from(all_normal())))
-    save = load_save(root / "save/state.json")
+    save = load_save(root / "save")
     assert save.battle.active and save.battle.result is None
     assert save.battle.turn == 2
     assert save.battle.enemies[0].hp < save.battle.enemies[0].max_hp
@@ -162,46 +171,46 @@ def test_duplicate_issue_is_idempotent(tmp_path):
     root = make_root(tmp_path)
     issue = make_issue(1, body_from(_policy_commands(root)))
     run(root, issue)
-    snapshot = (root / "save/state.json").read_bytes()
+    snapshot = _snapshot(root)
     run(root, issue)  # 同じIssueをもう一度
-    assert (root / "save/state.json").read_bytes() == snapshot
+    assert _snapshot(root) == snapshot
 
 
 def test_invalid_move_does_not_consume_turn(tmp_path):
     root = make_root(tmp_path)
     ct_move = {r: ("アビ1", "自動") if r == "attacker" else ("通常攻撃", "自動") for r in ROLE_LABELS}
     run(root, make_issue(1, body_from(ct_move)))
-    snapshot = (root / "save/state.json").read_bytes()
-    save = load_save(root / "save/state.json")
+    snapshot = _snapshot(root)
+    save = load_save(root / "save")
     assert save.member_by_role("attacker").abilities[0].ready_in > 0
     # CT中のアビ1をもう一度 → 不正手 → セーブ不変・ターン不消費
     run(root, make_issue(2, body_from(ct_move)))
-    assert (root / "save/state.json").read_bytes() == snapshot
-    save2 = load_save(root / "save/state.json")
+    assert _snapshot(root) == snapshot
+    save2 = load_save(root / "save")
     assert 2 not in save2.processed_issues
     assert save2.battle.turn == save.battle.turn
 
 
 def test_non_owner_is_ignored(tmp_path):
     root = make_root(tmp_path)
-    snapshot = (root / "save/state.json").read_bytes()
+    snapshot = _snapshot(root)
     run(root, make_issue(1, body_from(all_normal()), author="mallory"))
-    assert (root / "save/state.json").read_bytes() == snapshot
+    assert _snapshot(root) == snapshot
     assert not (root / "assets/board.svg").exists()
 
 
 def test_wrong_title_is_ignored(tmp_path):
     root = make_root(tmp_path)
-    snapshot = (root / "save/state.json").read_bytes()
+    snapshot = _snapshot(root)
     run(root, make_issue(1, body_from(all_normal()), title="ふつうのバグ報告"))
-    assert (root / "save/state.json").read_bytes() == snapshot
+    assert _snapshot(root) == snapshot
 
 
 def test_broken_body_is_invalid_not_crash(tmp_path):
     root = make_root(tmp_path)
-    snapshot = (root / "save/state.json").read_bytes()
+    snapshot = _snapshot(root)
     run(root, make_issue(1, "こんにちは"))
-    assert (root / "save/state.json").read_bytes() == snapshot
+    assert _snapshot(root) == snapshot
 
 
 # ---- GitHub返信経路(FakeGhApi) ----------------------------------------
@@ -247,7 +256,7 @@ def test_comment_failure_propagates_after_turn_consumed(tmp_path):
     gh.raise_on_comment = True
     with pytest.raises(RuntimeError):
         run(root, make_issue(1, body_from(all_normal())), gh=gh)
-    save = load_save(root / "save/state.json")
+    save = load_save(root / "save")
     assert 1 in save.processed_issues
     assert gh.closed == []
 
@@ -287,6 +296,8 @@ def test_git_single_commit_contains_save_board_readme(tmp_path):
     run(root, make_issue(1, body_from(all_normal())), do_git=True)
     files = _git("show", "--name-only", "--format=", "HEAD", cwd=root).splitlines()
     assert {"save/state.json", "assets/board.svg", "README.md"} <= set(files)
+    tree = _git("ls-tree", "-r", "--name-only", "HEAD", cwd=root).splitlines()
+    assert {"save/player.json", "save/party/sora.json", "save/spells/sora_a1.json", "save/log.md"} <= set(tree)
     assert "?v=t1-i1" in (root / "README.md").read_text(encoding="utf-8")
     # pushされている(originの先端=ローカルHEAD)
     assert _git("rev-parse", "HEAD", cwd=root) == _git("rev-parse", "main", cwd=origin)
@@ -308,6 +319,6 @@ def test_git_push_conflict_replays_from_remote(tmp_path):
     assert _git("rev-parse", "HEAD", cwd=root) == _git("rev-parse", "main", cwd=origin)
     files_in_tree = _git("ls-tree", "-r", "--name-only", "HEAD", cwd=root).splitlines()
     assert "notes.txt" in files_in_tree
-    save = load_save(root / "save/state.json")
+    save = load_save(root / "save")
     assert 1 in save.processed_issues
     assert save.battle is not None and save.battle.turn == 2

@@ -36,7 +36,7 @@ PROCESSED_ISSUES_MAX = 500
 LABEL_PROCESSED = "turn"
 MAX_PUSH_REPLAYS = 3
 
-SAVE_PATH = "save/state.json"
+SAVE_DIR = "save"
 BOARD_PATH = "assets/board.svg"
 README_PATH = "README.md"
 WORLD_PATH = "world/world.json"
@@ -100,7 +100,7 @@ def process_issue(issue: dict[str, Any], repo_slug: str, root: str, do_git: bool
 
     last_error = ""
     for attempt in range(MAX_PUSH_REPLAYS):
-        save = load_save(root_path / SAVE_PATH)
+        save = load_save(root_path / SAVE_DIR)
 
         if number in save.processed_issues:
             if gh:
@@ -130,7 +130,7 @@ def process_issue(issue: dict[str, Any], repo_slug: str, root: str, do_git: bool
         new_save.processed_issues.append(number)
         del new_save.processed_issues[:-PROCESSED_ISSUES_MAX]
 
-        write_save(new_save, root_path / SAVE_PATH)
+        write_save(new_save, root_path / SAVE_DIR)
         svg = board_mod.build_board_svg(new_save, world, balance)
         board_file = root_path / BOARD_PATH
         board_file.parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +144,7 @@ def process_issue(issue: dict[str, Any], repo_slug: str, root: str, do_git: bool
         if do_git:
             gitops.configure_identity(root)
             gitops.commit(
-                [SAVE_PATH, BOARD_PATH, README_PATH],
+                [SAVE_DIR, BOARD_PATH, README_PATH],
                 f"turn {report.turn}: issue #{number}",
                 cwd=root,
             )

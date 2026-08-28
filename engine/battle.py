@@ -28,7 +28,7 @@ from .commands import (
     Command,
     normal_attack_effects,
 )
-from .models import Battle, Buff, Enemy, Member, Save
+from .models import Ability, Battle, Buff, Dot, Enemy, Member, Save, Ultimate
 from .rng import Rng
 
 RECENT_LOG_LIMIT = 10
@@ -102,6 +102,15 @@ def _damage_amount(ctx: _Ctx, atk: float, power: float, df: float) -> int:
     return max(int(b["min_damage"]), round(raw))
 
 
+def _absorb_and_damage(target: Union[Member, Enemy], dmg: int) -> tuple[int, int]:
+    """シールドで吸収してからHPへ。(吸収量, HPダメージ) を返す。"""
+    absorbed = min(target.shield, dmg)
+    target.shield -= absorbed
+    hp_dmg = dmg - absorbed
+    target.hp = max(0, target.hp - hp_dmg)
+    return absorbed, hp_dmg
+
+
 def _gain_gauge(ctx: _Ctx, member: Member, amount: int) -> None:
     cap = int(ctx.balance["ult_gauge"]["max"])
     member.ult_gauge = min(cap, member.ult_gauge + amount)
@@ -142,24 +151,36 @@ def _pick_heal_target(ctx: _Ctx, cmd_target: str) -> Optional[Member]:
     return min(alive, key=lambda m: (m.hp / m.max_hp, m.id))  # 自動=HP割合最小
 
 
-def _apply_member_damage(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_target: str, source_name: str) -> None:
+def _apply_member_damage(
+    ctx: _Ctx,
+    actor: Member,
+    effect: dict[str, Any],
+    cmd_target: str,
+    source_name: str,
+    source: Union[Ability, Ultimate, None] = None,
+) -> None:
     target = _pick_enemy_target(ctx, cmd_target)
     if target is None:
         _log(ctx, f"{actor.name}の{source_name}は空を切った(敵がいない)。")
         return
     hits = int(effect.get("hits", 1))
     total = 0
+    absorbed_total = 0
     for _ in range(hits):
         if not target.alive:
             break
         dmg = _damage_amount(ctx, actor.eff_atk(), float(effect["power"]), target.eff_def())
-        target.hp = max(0, target.hp - dmg)
+        absorbed, _hp_dmg = _absorb_and_damage(target, dmg)
+        absorbed_total += absorbed
         total += dmg
     suffix = f"{hits}連撃で" if hits > 1 else ""
-    _log(ctx, f"{actor.name}の{source_name}! {target.name}に{suffix}{total}ダメージ!")
+    shield_note = f"(シールドが{absorbed_total}吸収)" if absorbed_total else ""
+    _log(ctx, f"{actor.name}の{source_name}! {target.name}に{suffix}{total}ダメージ!{shield_note}")
     actor.hate += total * float(ctx.balance["hate"]["damage_mult"])
     if not target.alive:
         _log(ctx, f"{target.name}を撃破!")
+        if source is not None:
+            source.kills += 1
     _check_end(ctx)
 
 
@@ -207,24 +228,123 @@ def _apply_taunt(ctx: _Ctx, actor: Member, source_name: str) -> None:
     _log(ctx, f"{actor.name}の{source_name}! 敵の狙いを{lock}ターンの間、自分に固定した!")
 
 
+def _apply_member_debuff(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_target: str, source_name: str) -> None:
+    target = _pick_enemy_target(ctx, cmd_target)
+    if target is None:
+        return
+    buff = Buff(stat=str(effect["stat"]), mult=float(effect["mult"]), turns_left=int(effect["turns"]))
+    target.buffs.append(buff)
+    stat_label = {"atk": "攻撃", "def": "防御", "agi": "素早さ"}.get(buff.stat, buff.stat)
+    _log(ctx, f"{actor.name}の{source_name}! {target.name}の{stat_label}が{buff.mult}倍に低下({buff.turns_left}ターン)!")
+    actor.hate += float(ctx.balance["hate"]["buff_flat"])
+
+
+def _apply_stun(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_target: str, source_name: str) -> None:
+    target = _pick_enemy_target(ctx, cmd_target)
+    if target is None:
+        return
+    resist = target.cc_resist.get("stun", 0)
+    effective = max(0, int(effect["turns"]) - resist)
+    effective = min(effective, int(ctx.balance["cc"]["max_stun_turns"]))
+    target.cc_resist["stun"] = resist + int(ctx.balance["cc"]["stun_resist_step"])
+    if effective <= 0:
+        _log(ctx, f"{actor.name}の{source_name}! しかし{target.name}は耐性で振りほどいた!")
+        return
+    target.stunned_turns = max(target.stunned_turns, effective)
+    _log(ctx, f"{actor.name}の{source_name}! {target.name}は{effective}ターン行動不能!(CC耐性が上昇)")
+
+
+def _apply_dot(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_target: str, source_name: str) -> None:
+    target = _pick_enemy_target(ctx, cmd_target)
+    if target is None:
+        return
+    damage = max(1, round(actor.eff_atk() * float(effect["power"])))
+    turns = int(effect["turns"])
+    target.dots.append(Dot(damage=damage, turns_left=turns, source=source_name))
+    _log(ctx, f"{actor.name}の{source_name}! {target.name}は継続ダメージ状態({damage}/ターン×{turns})!")
+    actor.hate += damage * turns * 0.5 * float(ctx.balance["hate"]["damage_mult"])
+
+
+def _apply_shield(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_target: str, source_name: str) -> None:
+    amount = max(1, round(actor.eff_atk() * float(effect["power"])))
+    if effect.get("target") == "party":
+        targets = [m for m in ctx.save.party if m.alive]
+    elif effect.get("target") == "self":
+        targets = [actor]
+    else:
+        t = _pick_heal_target(ctx, cmd_target)
+        targets = [t] if t else []
+    for t in targets:
+        t.shield += amount
+    names = "全員" if len(targets) > 1 else (targets[0].name if targets else "誰も")
+    _log(ctx, f"{actor.name}の{source_name}! {names}に{amount}のシールド!")
+    actor.hate += float(ctx.balance["hate"]["buff_flat"])
+
+
+def _apply_scan(ctx: _Ctx, actor: Member, cmd_target: str, source_name: str) -> None:
+    target = _pick_enemy_target(ctx, cmd_target)
+    if target is None:
+        return
+    if target.id not in ctx.battle.scanned:
+        ctx.battle.scanned.append(target.id)
+    hate_order = sorted((m for m in ctx.save.party if m.alive), key=lambda m: -m.hate)
+    hate_txt = " > ".join(f"{m.name}{int(m.hate)}" for m in hate_order)
+    personality = f" 性格={target.personality}" if target.personality else ""
+    _log(ctx, f"{actor.name}の{source_name}! {target.name}を分析: 攻{target.atk} 防{target.df} 速{target.agi}{personality}")
+    _log(ctx, f"　敵のヘイト: {hate_txt}")
+
+
+def _apply_dispel(ctx: _Ctx, actor: Member, cmd_target: str, source_name: str) -> None:
+    target = _pick_enemy_target(ctx, cmd_target)
+    if target is None:
+        return
+    removed = [b for b in target.buffs if b.mult > 1.0]
+    target.buffs = [b for b in target.buffs if b.mult <= 1.0]  # 弱体(デバフ)は残す
+    if removed:
+        _log(ctx, f"{actor.name}の{source_name}! {target.name}の強化を{len(removed)}つ打ち消した!")
+    else:
+        _log(ctx, f"{actor.name}の{source_name}! しかし{target.name}に強化はなかった。")
+
+
 def _apply_member_effects(
-    ctx: _Ctx, actor: Member, effects: list[dict[str, Any]], cmd_target: str, source_name: str
+    ctx: _Ctx,
+    actor: Member,
+    effects: list[dict[str, Any]],
+    cmd_target: str,
+    source_name: str,
+    source: Union[Ability, Ultimate, None] = None,
 ) -> None:
     for effect in effects:
         if ctx.battle.result:
             return
         tag = effect.get("tag")
         if tag == "damage":
-            _apply_member_damage(ctx, actor, effect, cmd_target, source_name)
+            _apply_member_damage(ctx, actor, effect, cmd_target, source_name, source)
         elif tag == "heal":
             _apply_heal(ctx, actor, effect, cmd_target, source_name)
         elif tag == "buff":
             _apply_buff(ctx, actor, effect, source_name)
+        elif tag == "debuff":
+            _apply_member_debuff(ctx, actor, effect, cmd_target, source_name)
+        elif tag == "stun":
+            _apply_stun(ctx, actor, effect, cmd_target, source_name)
+        elif tag == "dot":
+            _apply_dot(ctx, actor, effect, cmd_target, source_name)
+        elif tag == "shield":
+            _apply_shield(ctx, actor, effect, cmd_target, source_name)
+        elif tag == "scan":
+            _apply_scan(ctx, actor, cmd_target, source_name)
+        elif tag == "dispel":
+            _apply_dispel(ctx, actor, cmd_target, source_name)
         elif tag == "taunt":
             _apply_taunt(ctx, actor, source_name)
         elif tag == "hate":
-            actor.hate += float(effect["amount"])
-            _log(ctx, f"{actor.name}は敵の注意を引いた(ヘイト+{int(effect['amount'])})。")
+            actor.hate = max(0.0, actor.hate + float(effect["amount"]))
+            amount = int(effect["amount"])
+            if amount >= 0:
+                _log(ctx, f"{actor.name}は敵の注意を引いた(ヘイト+{amount})。")
+            else:
+                _log(ctx, f"{actor.name}は気配を消した(ヘイト{amount})。")
         # 未知タグは無視(効果タグ辞書の拡張はエンジン更新で行う)
 
 
@@ -244,8 +364,9 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
             _log(ctx, f"{member.name}の{ability.name}はまだ使えない!")
             return
         ability.ready_in = ability.ct
+        ability.usage_count += 1
         _apply_member_effects(
-            ctx, member, ability.effects, cmd.target, f"{ctx.ability_term}「{ability.name}」"
+            ctx, member, ability.effects, cmd.target, f"{ctx.ability_term}「{ability.name}」", ability
         )
         _gain_gauge(ctx, member, int(g["ability"]))
         return
@@ -255,8 +376,52 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
             _log(ctx, f"{member.name}の奥義はゲージ不足で不発!")
             return
         member.ult_gauge = 0
-        _apply_member_effects(ctx, member, member.ultimate.effects, cmd.target, f"奥義《{member.ultimate.name}》")
+        member.ultimate.usage_count += 1
+        _apply_member_effects(
+            ctx, member, member.ultimate.effects, cmd.target, f"奥義《{member.ultimate.name}》", member.ultimate
+        )
         return
+
+
+def _apply_enemy_effects(ctx: _Ctx, enemy: Enemy, action: dict[str, Any], target: Member) -> None:
+    """敵の行動効果をメンバーに適用する(damage / dot / debuff / stun に対応)。"""
+    name = str(action.get("name", "攻撃"))
+    for effect in action.get("effects", []):
+        if ctx.battle.result:
+            return
+        tag = effect.get("tag")
+        if tag == "damage":
+            hits = int(effect.get("hits", 1))
+            total = 0
+            absorbed_total = 0
+            for _ in range(hits):
+                if not target.alive:
+                    break
+                dmg = _damage_amount(ctx, enemy.eff_atk(), float(effect["power"]), target.eff_def())
+                absorbed, _hp = _absorb_and_damage(target, dmg)
+                absorbed_total += absorbed
+                total += dmg
+                _gain_gauge(ctx, target, int(ctx.balance["ult_gauge"]["hit_taken"]))
+            shield_note = f"(シールドが{absorbed_total}吸収)" if absorbed_total else ""
+            _log(ctx, f"{enemy.name}の{name}! {target.name}に{total}ダメージ!{shield_note}")
+            if not target.alive:
+                _log(ctx, f"{target.name}は倒れた……")
+        elif tag == "dot":
+            damage = max(1, round(enemy.eff_atk() * float(effect["power"])))
+            target.dots.append(Dot(damage=damage, turns_left=int(effect["turns"]), source=name))
+            _log(ctx, f"{enemy.name}の{name}! {target.name}は継続ダメージ状態({damage}/ターン)!")
+        elif tag == "debuff":
+            buff = Buff(stat=str(effect["stat"]), mult=float(effect["mult"]), turns_left=int(effect["turns"]))
+            target.buffs.append(buff)
+            stat_label = {"atk": "攻撃", "def": "防御", "agi": "素早さ"}.get(buff.stat, buff.stat)
+            _log(ctx, f"{enemy.name}の{name}! {target.name}の{stat_label}が低下!")
+        elif tag == "stun":
+            target.stunned_turns = max(target.stunned_turns, min(int(effect["turns"]), int(ctx.balance["cc"]["max_stun_turns"])))
+            _log(ctx, f"{enemy.name}の{name}! {target.name}は行動不能!")
+        elif tag == "buff":  # 自己強化
+            enemy.buffs.append(Buff(stat=str(effect["stat"]), mult=float(effect["mult"]), turns_left=int(effect["turns"])))
+            _log(ctx, f"{enemy.name}の{name}! {enemy.name}は力を高めた!")
+    _check_end(ctx)
 
 
 def _enemy_act(ctx: _Ctx, enemy: Enemy) -> None:
@@ -273,22 +438,9 @@ def _enemy_act(ctx: _Ctx, enemy: Enemy) -> None:
     if target is None or not target.alive:
         return
     action = enemy.actions[decision.action_key]
-    for effect in action["effects"]:
-        if effect.get("tag") != "damage":
-            continue
-        hits = int(effect.get("hits", 1))
-        total = 0
-        for _ in range(hits):
-            if not target.alive:
-                break
-            dmg = _damage_amount(ctx, enemy.eff_atk(), float(effect["power"]), target.eff_def())
-            target.hp = max(0, target.hp - dmg)
-            total += dmg
-            _gain_gauge(ctx, target, int(ctx.balance["ult_gauge"]["hit_taken"]))
-        _log(ctx, f"{enemy.name}の{action['name']}! {target.name}に{total}ダメージ!")
-        if not target.alive:
-            _log(ctx, f"{target.name}は倒れた……")
-    _check_end(ctx)
+    if decision.line:
+        _log(ctx, f"{enemy.name}「{decision.line}」")
+    _apply_enemy_effects(ctx, enemy, action, target)
 
 
 def _clear_dead_taunt(ctx: _Ctx) -> None:
@@ -303,7 +455,27 @@ def _clear_dead_taunt(ctx: _Ctx) -> None:
             _log(ctx, f"{holder.name}が倒れ、敵の狙いの固定が解けた!")
 
 
+def _tick_dots(ctx: _Ctx) -> None:
+    """ターン終了時にDoTを発火(スナップショットダメージ・シールド貫通なしで吸収適用)。"""
+    for target in [*ctx.save.party, *ctx.battle.enemies]:
+        if not target.alive or not target.dots:
+            continue
+        total = sum(d.damage for d in target.dots)
+        _absorb_and_damage(target, total)
+        _log(ctx, f"{target.name}は継続ダメージで{total}を受けた!")
+        if not target.alive:
+            _log(ctx, f"{target.name}は倒れた……")
+        for d in target.dots:
+            d.turns_left -= 1
+        target.dots = [d for d in target.dots if d.turns_left > 0]
+    _check_end(ctx)
+    _clear_dead_taunt(ctx)
+
+
 def _end_of_turn(ctx: _Ctx) -> None:
+    _tick_dots(ctx)
+    if ctx.battle.result:
+        return  # DoTで決着した場合、ターン番号や残り効果はそのまま確定する
     for m in ctx.save.party:
         for a in m.abilities:
             if a.ready_in > 0:
@@ -311,15 +483,49 @@ def _end_of_turn(ctx: _Ctx) -> None:
         for b in m.buffs:
             b.turns_left -= 1
         m.buffs = [b for b in m.buffs if b.turns_left > 0]
+        if m.stunned_turns > 0:
+            m.stunned_turns -= 1
     for e in ctx.battle.enemies:
         for b in e.buffs:
             b.turns_left -= 1
         e.buffs = [b for b in e.buffs if b.turns_left > 0]
+        if e.stunned_turns > 0:
+            e.stunned_turns -= 1
     if ctx.battle.taunt_turns_left > 0:
         ctx.battle.taunt_turns_left -= 1
         if ctx.battle.taunt_turns_left == 0:
             ctx.battle.taunt_holder_id = None
     ctx.battle.turn += 1
+
+
+def xp_to_next(level: int, balance: dict[str, Any]) -> int:
+    lv = balance["leveling"]
+    return round(float(lv["xp_curve_base"]) * float(lv["xp_curve_growth"]) ** (max(1, level) - 1))
+
+
+def _apply_victory_progression(ctx: _Ctx) -> None:
+    """勝利時のXP付与とレベルアップ(パーティ共有レベル・生成権+1・役割別成長)。"""
+    lv = ctx.balance["leveling"]
+    gained = sum(
+        e.xp or int(lv["xp_per_tier"].get(e.tier, lv["xp_per_tier"]["standard"]))
+        for e in ctx.battle.enemies
+    )
+    save = ctx.save
+    save.xp += gained
+    _log(ctx, f"経験値{gained}を獲得!(累計{save.xp})")
+    while save.xp >= xp_to_next(save.level, ctx.balance):
+        save.xp -= xp_to_next(save.level, ctx.balance)
+        save.level += 1
+        save.spell_tokens += 1
+        for m in [*save.party, *save.roster_extra]:
+            growth = lv["growth"].get(m.role, {})
+            m.max_hp += int(growth.get("max_hp", 0))
+            m.atk += int(growth.get("atk", 0))
+            m.df += int(growth.get("def", 0))
+            m.agi += int(growth.get("agi", 0))
+            m.hp = min(m.max_hp, m.hp + int(growth.get("max_hp", 0)))
+        _log(ctx, f"⭐ レベルアップ! パーティはLv{save.level}になった! 技生成権+1(所持{save.spell_tokens})")
+        save.journal.append(f"パーティがLv{save.level}に到達")
 
 
 def resolve_turn(
@@ -361,6 +567,9 @@ def resolve_turn(
             break
         if not actor.alive:
             continue
+        if actor.stunned_turns > 0:
+            _log(ctx, f"{actor.name}は行動不能で動けない!")
+            continue
         if isinstance(actor, Enemy):
             _enemy_act(ctx, actor)
         else:
@@ -372,11 +581,12 @@ def resolve_turn(
 
     if not battle.result:
         _end_of_turn(ctx)
-    else:
+    if battle.result:
         turn_no = battle.turn
         if battle.result == "victory":
             new.stats["victories"] = new.stats.get("victories", 0) + 1
             new.journal.append(f"「{battle.name}」に勝利(ターン{turn_no})")
+            _apply_victory_progression(ctx)
         else:
             new.stats["defeats"] = new.stats.get("defeats", 0) + 1
             new.journal.append(f"「{battle.name}」で敗北(ターン{turn_no})")

@@ -36,6 +36,8 @@ class Ability:
     effects: list[dict[str, Any]]
     desc: str = ""
     ready_in: int = 0  # 0なら使用可。使用時に ct をセットし毎ターン終了時に減算
+    usage_count: int = 0  # 使い込みボーナス(技アップデートの予算)に使う
+    kills: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +47,8 @@ class Ability:
             "effects": self.effects,
             "desc": self.desc,
             "ready_in": self.ready_in,
+            "usage_count": self.usage_count,
+            "kills": self.kills,
         }
 
     @staticmethod
@@ -56,6 +60,8 @@ class Ability:
             effects=list(d["effects"]),
             desc=str(d.get("desc", "")),
             ready_in=int(d.get("ready_in", 0)),
+            usage_count=int(d.get("usage_count", 0)),
+            kills=int(d.get("kills", 0)),
         )
 
 
@@ -65,9 +71,18 @@ class Ultimate:
     name: str
     effects: list[dict[str, Any]]
     desc: str = ""
+    usage_count: int = 0
+    kills: int = 0
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name, "effects": self.effects, "desc": self.desc}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "effects": self.effects,
+            "desc": self.desc,
+            "usage_count": self.usage_count,
+            "kills": self.kills,
+        }
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "Ultimate":
@@ -76,7 +91,25 @@ class Ultimate:
             name=str(d["name"]),
             effects=list(d["effects"]),
             desc=str(d.get("desc", "")),
+            usage_count=int(d.get("usage_count", 0)),
+            kills=int(d.get("kills", 0)),
         )
+
+
+@dataclass
+class Dot:
+    """継続ダメージ(詠唱時にダメージ量をスナップショット)。"""
+
+    damage: int
+    turns_left: int
+    source: str  # 表示用の技名
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"damage": self.damage, "turns_left": self.turns_left, "source": self.source}
+
+    @staticmethod
+    def from_dict(d: dict[str, Any]) -> "Dot":
+        return Dot(damage=int(d["damage"]), turns_left=int(d["turns_left"]), source=str(d.get("source", "")))
 
 
 @dataclass
@@ -97,6 +130,9 @@ class Member:
     ult_gauge: int = 0
     hate: float = 0.0
     buffs: list[Buff] = field(default_factory=list)
+    shield: int = 0
+    stunned_turns: int = 0
+    dots: list[Dot] = field(default_factory=list)
 
     @property
     def alive(self) -> bool:
@@ -134,6 +170,9 @@ class Member:
             "ult_gauge": self.ult_gauge,
             "hate": self.hate,
             "buffs": [b.to_dict() for b in self.buffs],
+            "shield": self.shield,
+            "stunned_turns": self.stunned_turns,
+            "dots": [x.to_dict() for x in self.dots],
         }
 
     @staticmethod
@@ -153,6 +192,9 @@ class Member:
             ult_gauge=int(d.get("ult_gauge", 0)),
             hate=float(d.get("hate", 0.0)),
             buffs=[Buff.from_dict(b) for b in d.get("buffs", [])],
+            shield=int(d.get("shield", 0)),
+            stunned_turns=int(d.get("stunned_turns", 0)),
+            dots=[Dot.from_dict(x) for x in d.get("dots", [])],
         )
 
 
@@ -168,6 +210,14 @@ class Enemy:
     agi: int
     actions: dict[str, Any]  # {"normal": {...}, "strong": {...}}
     buffs: list[Buff] = field(default_factory=list)
+    shield: int = 0
+    stunned_turns: int = 0
+    dots: list[Dot] = field(default_factory=list)
+    cc_resist: dict[str, int] = field(default_factory=dict)  # CC耐性段階(同一CCは効く度に上昇)
+    personality: str = ""  # 知能層AIに渡す性格(狡猾/凶暴/臆病など)
+    tier: str = "standard"  # minion | standard | elite | boss
+    intelligent: bool = False  # True=知能層(AI判断)、False=ルール層
+    xp: int = 0
 
     @property
     def alive(self) -> bool:
@@ -201,6 +251,14 @@ class Enemy:
             "agi": self.agi,
             "actions": self.actions,
             "buffs": [b.to_dict() for b in self.buffs],
+            "shield": self.shield,
+            "stunned_turns": self.stunned_turns,
+            "dots": [x.to_dict() for x in self.dots],
+            "cc_resist": self.cc_resist,
+            "personality": self.personality,
+            "tier": self.tier,
+            "intelligent": self.intelligent,
+            "xp": self.xp,
         }
 
     @staticmethod
@@ -216,6 +274,14 @@ class Enemy:
             agi=int(d["agi"]),
             actions=dict(d["actions"]),
             buffs=[Buff.from_dict(b) for b in d.get("buffs", [])],
+            shield=int(d.get("shield", 0)),
+            stunned_turns=int(d.get("stunned_turns", 0)),
+            dots=[Dot.from_dict(x) for x in d.get("dots", [])],
+            cc_resist={str(k): int(v) for k, v in d.get("cc_resist", {}).items()},
+            personality=str(d.get("personality", "")),
+            tier=str(d.get("tier", "standard")),
+            intelligent=bool(d.get("intelligent", False)),
+            xp=int(d.get("xp", 0)),
         )
 
 
@@ -229,6 +295,7 @@ class Battle:
     taunt_holder_id: Optional[str] = None
     taunt_turns_left: int = 0
     recent_log: list[str] = field(default_factory=list)  # ボード表示用の直近ログ
+    scanned: list[str] = field(default_factory=list)  # スキャン済み敵ID(ボードに詳細表示)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -240,6 +307,7 @@ class Battle:
             "taunt_holder_id": self.taunt_holder_id,
             "taunt_turns_left": self.taunt_turns_left,
             "recent_log": self.recent_log,
+            "scanned": self.scanned,
         }
 
     @staticmethod
@@ -253,6 +321,7 @@ class Battle:
             taunt_holder_id=d.get("taunt_holder_id"),
             taunt_turns_left=int(d.get("taunt_turns_left", 0)),
             recent_log=list(d.get("recent_log", [])),
+            scanned=[str(x) for x in d.get("scanned", [])],
         )
 
 
@@ -265,8 +334,12 @@ class Save:
     party: list[Member]
     battle: Optional[Battle]
     processed_issues: list[int] = field(default_factory=list)
-    journal: list[str] = field(default_factory=list)  # 旅の記録(1行サマリ)
+    journal: list[str] = field(default_factory=list)  # 旅の記録(1行サマリ。log.mdへ永続化)
     stats: dict[str, int] = field(default_factory=dict)  # 勝利数など
+    level: int = 1  # パーティ共有レベル
+    xp: int = 0
+    spell_tokens: int = 0  # 技生成権(レベルアップで+1)
+    roster_extra: list[Member] = field(default_factory=list)  # 勧誘で加入した控えメンバー
 
     def member_by_role(self, role: str) -> Optional[Member]:
         for m in self.party:
@@ -290,6 +363,10 @@ class Save:
             "processed_issues": self.processed_issues,
             "journal": self.journal,
             "stats": self.stats,
+            "level": self.level,
+            "xp": self.xp,
+            "spell_tokens": self.spell_tokens,
+            "roster_extra": [m.to_dict() for m in self.roster_extra],
         }
 
     @staticmethod
@@ -304,4 +381,8 @@ class Save:
             processed_issues=[int(n) for n in d.get("processed_issues", [])],
             journal=list(d.get("journal", [])),
             stats={str(k): int(v) for k, v in d.get("stats", {}).items()},
+            level=int(d.get("level", 1)),
+            xp=int(d.get("xp", 0)),
+            spell_tokens=int(d.get("spell_tokens", 0)),
+            roster_extra=[Member.from_dict(m) for m in d.get("roster_extra", [])],
         )

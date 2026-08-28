@@ -14,8 +14,9 @@ from .rng import Rng
 
 @dataclass
 class EnemyDecision:
-    action_key: str  # "normal" | "strong"
+    action_key: str  # 敵の actions のキー("normal" / "strong" / 生成敵の "special" 等)
     target_id: str
+    line: str = ""  # 知能層AIのセリフ(ルール層は空)
 
 
 def decide(

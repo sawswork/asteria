@@ -33,5 +33,57 @@
   "enemy": {
     "strong_attack_every": 3
   },
-  "journal_max_entries": 200
+  "journal_max_entries": 200,
+  "leveling": {
+    "xp_curve_base": 100,
+    "xp_curve_growth": 1.35,
+    "xp_per_tier": {"minion": 50, "standard": 100, "elite": 160, "boss": 320},
+    "growth": {
+      "attacker": {"max_hp": 7, "atk": 2, "def": 1, "agi": 1},
+      "support": {"max_hp": 6, "atk": 1, "def": 1, "agi": 1},
+      "tank": {"max_hp": 12, "atk": 1, "def": 2, "agi": 0},
+      "healer": {"max_hp": 6, "atk": 1, "def": 1, "agi": 1}
+    }
+  },
+  "spell_budget": {
+    "base": 28,
+    "per_level": 4,
+    "role_coeff": {"attacker": 1.05, "support": 1.0, "tank": 1.0, "healer": 1.0},
+    "ult_mult": 3.0,
+    "ct_discount_per_turn": 0.06,
+    "ct_discount_max_turns": 5
+  },
+  "effect_costs": {
+    "damage_per_power": 10,
+    "heal_per_power": 9,
+    "heal_party_mult": 2.4,
+    "buff_stat_weight": {"atk": 45, "def": 30, "agi": 50},
+    "buff_party_mult": 1.8,
+    "debuff_stat_weight": {"atk": 40, "def": 30, "agi": 45},
+    "stun_per_turn": 55,
+    "dot_per_power_turn": 7,
+    "shield_per_power": 12,
+    "shield_party_mult": 2.4,
+    "scan_flat": 12,
+    "dispel_flat": 15,
+    "hate_per_point": 0.3,
+    "taunt_flat": 20
+  },
+  "enemy_scale": {
+    "hp_base": 200,
+    "hp_per_level": 40,
+    "atk_base": 12,
+    "atk_per_level": 2.2,
+    "def_base": 8,
+    "def_per_level": 1.5,
+    "agi_base": 10,
+    "agi_per_level": 0.8,
+    "tier_mult": {"minion": 0.55, "standard": 1.0, "elite": 1.35, "boss": 2.2},
+    "stat_tolerance": 0.18,
+    "special_budget_mult": 1.6
+  },
+  "cc": {
+    "stun_resist_step": 1,
+    "max_stun_turns": 2
+  }
 }

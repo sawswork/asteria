@@ -60,15 +60,18 @@ def normal_attack_effects(balance: dict[str, Any]) -> list[dict[str, Any]]:
     return [{"tag": "damage", "power": power, "target": "enemy"}]
 
 
+OFFENSE_TAGS = ("damage", "dot", "debuff", "stun", "scan", "dispel")
+
+
 def _primary_effect_kind(effects: list[dict]) -> str:
     """効果リストの主効果種別: "offense"(敵対象) / "friendly"(味方対象) / "neutral"。"""
     for e in effects:
-        if e.get("tag") == "damage":
+        if e.get("tag") in OFFENSE_TAGS:
             return "offense"
     for e in effects:
-        if e.get("tag") == "heal" and e.get("target") == "ally":
+        if e.get("tag") in ("heal", "shield") and e.get("target") == "ally":
             return "friendly_single"
-        if e.get("tag") in ("heal", "buff", "taunt", "hate"):
+        if e.get("tag") in ("heal", "buff", "taunt", "hate", "shield"):
             return "friendly"
     return "neutral"
 
@@ -143,7 +146,7 @@ def validate_commands(
                 continue
         elif cmd.target in LABEL_TO_ROLE:
             if kind == "offense":
-                errors.append(InvalidMove(role, "攻撃は味方を対象にできません"))
+                errors.append(InvalidMove(role, "その行動は敵対象です。味方を対象にできません"))
                 continue
             target_member = save.member_by_role(LABEL_TO_ROLE[cmd.target])
             if target_member is None or not target_member.alive:
