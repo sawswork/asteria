@@ -4,12 +4,12 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-⚔️ 戦闘中: **宿敵・夜哭きの梟との再戦**(ターン2)
+⚔️ 戦闘中: **宿敵・夜哭きの梟との再戦**(ターン6)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦闘シーン](assets/scene.svg?v=i42-a0)
+![戦闘シーン](assets/scene.svg?v=i43-a0)
 
-![戦況ボード](assets/board.svg?v=i42-a0)
+![戦況ボード](assets/board.svg?v=i43-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド

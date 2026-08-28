@@ -4,12 +4,12 @@
   "name": "ミオ",
   "title": "祈り手",
   "max_hp": 103,
-  "hp": 66,
+  "hp": 32,
   "atk": 12,
   "def": 11,
   "agi": 13,
-  "ult_gauge": 85,
-  "hate": 6.0,
+  "ult_gauge": 50,
+  "hate": 133.0,
   "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
@@ -24,18 +24,18 @@
   "slot_state": {
     "ability1": {
       "ready_in": 0,
-      "battle_uses": 0
+      "battle_uses": 1
     },
     "ability2": {
-      "ready_in": 0,
-      "battle_uses": 0
+      "ready_in": 3,
+      "battle_uses": 1
     },
     "ability3": {
       "ready_in": 0,
       "battle_uses": 0
     },
     "ultimate": {
-      "battle_uses": 0
+      "battle_uses": 1
     }
   }
 }
