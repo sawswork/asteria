@@ -64,6 +64,17 @@ def render_readme(
     nemesis_name = str(((save.nemesis or {}).get("enemy") or {}).get("name", ""))
     if nemesis_name and not (save.battle and save.battle.active):
         status += f"\n\n👁 宿敵**{nemesis_name}**が待ち構えている——次の戦いで必ず現れる。"
+    pr = (save.battle.pr_attack if save.battle else None) or {}
+    if save.battle and save.battle.active and pr.get("status") in ("casting", "deadline"):
+        num = pr.get("pr_number")
+        left = max(0, int(pr.get("deadline_turn", 0)) - save.battle.turn)
+        link = f"[PR #{num}](https://github.com/{repo_slug}/pull/{num})" if num else "PR"
+        need = pr.get("break_need")
+        how = f"ボスへ合計{need}ダメージで打ち破る" if need else "ボスを削って打ち破る"
+        status += (
+            f"\n\n🕳 **ボスが禁忌の詠唱中!** {link} が星の理を歪めようとしている(猶予**{left}ターン**)。"
+            f"\n{how}か、**{link} を手動でクローズして封じる**かのどちらかを——放置すると強制マージされる。"
+        )
 
     victories = save.stats.get("victories", 0)
     journal_tail = "\n".join(f"- {line}" for line in save.journal[-5:])
