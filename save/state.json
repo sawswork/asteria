@@ -3,25 +3,25 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 74
+    "counter": 83
   },
   "battle": {
-    "active": false,
-    "name": "星蝕の仔狼との遭遇",
-    "turn": 8,
+    "active": true,
+    "name": "夜哭きの梟との戦い",
+    "turn": 2,
     "enemies": [
       {
-        "id": "m1_wolf",
-        "name": "星蝕の仔狼",
-        "title": "蝕まれし獣",
-        "max_hp": 240,
-        "hp": 0,
-        "atk": 14,
-        "def": 9,
-        "agi": 11,
+        "id": "enemy_gen1",
+        "name": "夜哭きの梟",
+        "title": "静寂を裂く声",
+        "max_hp": 200,
+        "hp": 142,
+        "atk": 12,
+        "def": 8,
+        "agi": 10,
         "actions": {
           "normal": {
-            "name": "噛みつき",
+            "name": "風切り爪",
             "effects": [
               {
                 "tag": "damage",
@@ -30,12 +30,13 @@
               }
             ]
           },
-          "strong": {
-            "name": "星蝕の牙",
+          "special": {
+            "name": "哭声",
             "effects": [
               {
-                "tag": "damage",
-                "power": 1.5,
+                "tag": "dot",
+                "power": 0.6,
+                "turns": 2,
                 "target": "enemy"
               }
             ]
@@ -46,27 +47,26 @@
         "stunned_turns": 0,
         "dots": [],
         "cc_resist": {},
-        "personality": "",
+        "personality": "狡猾",
         "tier": "standard",
-        "intelligent": false,
-        "xp": 0,
+        "intelligent": true,
+        "xp": 100,
         "last_special_turn": 0
       }
     ],
-    "result": "victory",
-    "taunt_holder_id": null,
-    "taunt_turns_left": 0,
+    "result": null,
+    "taunt_holder_id": "gante",
+    "taunt_turns_left": 1,
     "recent_log": [
-      "—— ターン7 ——",
-      "ソラの攻撃! 星蝕の仔狼に11ダメージ!",
-      "リュノの攻撃! 星蝕の仔狼に5ダメージ!",
-      "星蝕の仔狼の噛みつき! ガンテに6ダメージ!",
-      "ミオの攻撃! 星蝕の仔狼に5ダメージ!",
-      "ガンテの攻撃! 星蝕の仔狼に5ダメージ!",
-      "—— ターン8 ——",
-      "ソラの奥義《彗星烈斬》! 星蝕の仔狼に50ダメージ!",
-      "星蝕の仔狼を撃破!",
-      "勝利! 「星蝕の仔狼との遭遇」を制した!"
+      "梢の闇で、二つの光る眼がこちらを見下ろしていた。",
+      "—— ターン1 ——",
+      "ソラの星技「星穿ち」! 夜哭きの梟に52ダメージ!",
+      "リュノの星技「星の勇歌」! 全員の攻撃が1.2倍(2ターン)!",
+      "夜哭きの梟「癒し手から潰すがいい」",
+      "夜哭きの梟の風切り爪! ミオに9ダメージ!",
+      "ミオの攻撃! 夜哭きの梟に6ダメージ!",
+      "ガンテの星技「挑発の雄叫び」! 敵の狙いを2ターンの間、自分に固定した!",
+      "(梟は翼をはばたかせ、獲物を品定めするように眼を光らせる)"
     ],
     "scanned": []
   },
@@ -80,11 +80,13 @@
     8,
     9,
     10,
-    12
+    12,
+    13
   ],
   "stats": {
     "victories": 1,
-    "spells_generated": 1
+    "spells_generated": 1,
+    "enemies_generated": 1
   },
   "pending_update": null
 }
