@@ -3,25 +3,25 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 119
+    "counter": 128
   },
   "battle": {
-    "active": false,
-    "name": "夜哭きの梟との戦い",
-    "turn": 5,
+    "active": true,
+    "name": "星屑の亡霊との戦い",
+    "turn": 2,
     "enemies": [
       {
-        "id": "enemy_gen1",
-        "name": "夜哭きの梟",
-        "title": "静寂を裂く声",
-        "max_hp": 200,
-        "hp": 0,
-        "atk": 12,
-        "def": 8,
-        "agi": 10,
+        "id": "enemy_gen2",
+        "name": "星屑の亡霊",
+        "title": "揺らめく残光",
+        "max_hp": 240,
+        "hp": 180,
+        "atk": 14,
+        "def": 10,
+        "agi": 11,
         "actions": {
           "normal": {
-            "name": "風切り爪",
+            "name": "冷気の爪",
             "effects": [
               {
                 "tag": "damage",
@@ -31,12 +31,11 @@
             ]
           },
           "special": {
-            "name": "哭声",
+            "name": "星喰の咆哮",
             "effects": [
               {
-                "tag": "dot",
-                "power": 0.6,
-                "turns": 2,
+                "tag": "damage",
+                "power": 1.5,
                 "target": "enemy"
               }
             ]
@@ -47,27 +46,26 @@
         "stunned_turns": 0,
         "dots": [],
         "cc_resist": {},
-        "personality": "狡猾",
+        "personality": "臆病",
         "tier": "standard",
         "intelligent": true,
         "xp": 100,
-        "last_special_turn": 3
+        "last_special_turn": 0
       }
     ],
-    "result": "victory",
-    "taunt_holder_id": null,
-    "taunt_turns_left": 0,
+    "result": null,
+    "taunt_holder_id": "gante",
+    "taunt_turns_left": 1,
     "recent_log": [
-      "ガンテの攻撃! 夜哭きの梟に5ダメージ!",
-      "ミオは継続ダメージで7を受けた!",
-      "(梟の眼光が鋭くミオを捉える。戦術的な選択——ヘイト最大の盾ではなく、背後の支えの手を狙う。)",
-      "—— ターン5 ——",
-      "ソラの攻撃! 夜哭きの梟に13ダメージ!",
-      "夜哭きの梟を撃破!",
-      "勝利! 「夜哭きの梟との戦い」を制した!",
-      "経験値100を獲得!(累計100)",
-      "⭐ レベルアップ! パーティはLv2になった! 技生成権+1(所持1)",
-      "(瀕死の梟、漆黒の翼を高く掲げる。ヘイト最大の盾へ、最後の一撃を賭ける。)"
+      "崩れた星片の陰から、青白い残光がにじみ出た。",
+      "—— ターン1 ——",
+      "ソラの星技「星穿ち」! 星屑の亡霊に53ダメージ!",
+      "リュノの星技「星の勇歌」! 全員の攻撃が1.2倍(2ターン)!",
+      "ミオの攻撃! 星屑の亡霊に7ダメージ!",
+      "星屑の亡霊「援護の鎖を断つ…」",
+      "星屑の亡霊の冷気の爪! ミオに9ダメージ!",
+      "ガンテの星技「挑発の雄叫び」! 敵の狙いを2ターンの間、自分に固定した!",
+      "(星屑の亡霊は身を震わせた。臆病ながら、回復役への狙いは知能の冴えを示す。長引く戦いこそが、この敵にとって最大の脅威なのだ。)"
     ],
     "scanned": []
   },
@@ -87,12 +85,13 @@
     16,
     17,
     18,
-    19
+    19,
+    20
   ],
   "stats": {
     "victories": 2,
     "spells_generated": 2,
-    "enemies_generated": 1
+    "enemies_generated": 2
   },
   "pending_update": null
 }

@@ -4,10 +4,10 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-🏆 直前の戦い「夜哭きの梟との戦い」に**勝利**! 次のターン送信で新しい戦いが始まる。
+⚔️ 戦闘中: **星屑の亡霊との戦い**(ターン2)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード](assets/board.svg?v=i19-a0)
+![戦況ボード](assets/board.svg?v=i20-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
