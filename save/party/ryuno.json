@@ -8,8 +8,8 @@
   "atk": 13,
   "def": 12,
   "agi": 15,
-  "ult_gauge": 30,
-  "hate": 42.0,
+  "ult_gauge": 70,
+  "hate": 31.0,
   "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
@@ -32,10 +32,10 @@
     },
     "ability3": {
       "ready_in": 0,
-      "battle_uses": 2
+      "battle_uses": 1
     },
     "ultimate": {
-      "battle_uses": 1
+      "battle_uses": 0
     }
   }
 }
