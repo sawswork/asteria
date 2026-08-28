@@ -160,8 +160,12 @@ def effect_cost(effect: dict[str, Any], balance: dict[str, Any]) -> float:
     tag = effect.get("tag")
     if tag == "damage":
         base = float(c["damage_per_power"]) * float(effect["power"]) * int(effect.get("hits", 1))
-        if effect.get("field"):  # 添えタグ(不成立時は2ターン付与に相当)の追加コスト
-            base += float(balance.get("field", {}).get("cost_per_turn", 6)) * 2
+        if effect.get("field"):
+            # 添えタグは「2ターン付与」相当に加えて、チェイン反応で得られる増分も前払いさせる
+            # (でなければ倍率が無料になり、1つの技で仕込みと起爆を自己完結できてしまう)
+            fb = balance.get("field", {})
+            base += float(fb.get("cost_per_turn", 6)) * 2
+            base += base * (float(fb.get("chain_mult_reference", 1.8)) - 1.0)
         return base
     if tag == "heal":
         base = float(c["heal_per_power"]) * float(effect["power"])

@@ -148,6 +148,8 @@ class _Ctx:
     resonance_ids: set[str] = field(default_factory=set)  # このターン共鳴する技ID
     resonance_partner: dict[str, str] = field(default_factory=dict)  # 技ID→相方のメンバーID
     resonance_fired: set[str] = field(default_factory=set)  # 実際に発動した共鳴技ID
+    resonance_witness: set[str] = field(default_factory=set)  # 共鳴の片割れ(増幅は受けない)
+    resonance_amplified: str = ""  # 増幅を受ける技ID(初代技)
     resonance_mult: float = 1.0
     current_amp: float = 1.0  # 実行中アクションの増幅(共鳴)
 
@@ -249,7 +251,10 @@ def _detect_resonance(ctx: _Ctx, commands: dict[str, Command]) -> None:
     budget = budget_for(ctx.save.level, gen0_member.role, ctx.balance, is_ult)
     cap = float(ctx.balance.get("resonance", {}).get("amp_cap", 3.0))
     ctx.resonance_mult = max(1.0, min(cap, budget / cost)) if cost > 0 else 1.0
-    ctx.resonance_ids = {gen0_spell.id, newest[1].id}
+    # 増幅を受けるのは初代技のみ。最新世代の技は既に現行予算いっぱいで作られているため、
+    # 同じ倍率を乗せると「誓約で拡張した予算の上に無料の×3」が乗ってしまう
+    ctx.resonance_ids = {gen0_spell.id}
+    ctx.resonance_amplified = gen0_spell.id
     # 相方が実際に技を放てることが条件(下記 _resonance_amp が発動時に確認する)
     gen0_cmd = commands[gen0_member.role]
     new_cmd = commands[newest[2].role]
@@ -257,6 +262,7 @@ def _detect_resonance(ctx: _Ctx, commands: dict[str, Command]) -> None:
         gen0_spell.id: (newest[1].id, newest[2].id, new_cmd.target),
         newest[1].id: (gen0_spell.id, gen0_member.id, gen0_cmd.target),
     }
+    ctx.resonance_witness = {newest[1].id}  # 最新技は「共鳴の片割れ」だが増幅は受けない
 
 
 def _resonance_amp(ctx: _Ctx, spell_id: str) -> float:
@@ -265,7 +271,7 @@ def _resonance_amp(ctx: _Ctx, spell_id: str) -> float:
     宣言だけで成立させると、相方が先に倒される・行動不能になる・誓約で不発になっても
     増幅だけが乗り、1戦闘1回の権利も消費されてしまう。
     """
-    if spell_id not in ctx.resonance_ids:
+    if spell_id not in ctx.resonance_ids and spell_id not in ctx.resonance_witness:
         return 1.0
     partner_spell_id, partner_member_id, partner_target = ctx.resonance_partner.get(
         spell_id, ("", "", TARGET_AUTO)
@@ -281,7 +287,7 @@ def _resonance_amp(ctx: _Ctx, spell_id: str) -> float:
             return 1.0  # 相方は誓約の条件を満たさず不発になる
     ctx.resonance_fired.add(spell_id)
     _trigger_resonance(ctx)
-    return ctx.resonance_mult
+    return ctx.resonance_mult if spell_id == ctx.resonance_amplified else 1.0
 
 
 def _find_spell(member: Member, spell_id: str) -> Union[Ability, Ultimate, None]:

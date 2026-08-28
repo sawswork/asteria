@@ -139,7 +139,8 @@
   "recruit_every_victories": 3,
   "field": {
     "cost_per_turn": 6,
-    "max_stacks_per_target": 4
+    "max_stacks_per_target": 4,
+    "chain_mult_reference": 1.8
   },
   "constraints": {
     "hp_below_30": {

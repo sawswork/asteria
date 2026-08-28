@@ -301,7 +301,10 @@ def test_field_effect_cost(balance):
     assert effect_cost({"tag": "field", "name": "濡れ星", "turns": 3, "target": "enemy"}, balance) == per_turn * 3
     plain = effect_cost({"tag": "damage", "power": 1.0, "target": "enemy"}, balance)
     carried = effect_cost({"tag": "damage", "power": 1.0, "field": "雷紋", "target": "enemy"}, balance)
-    assert carried == plain + per_turn * 2  # 添えタグの追加コスト
+    # 添えタグ: 2ターン付与相当 + チェインで得られる増分の前払い
+    ref = float(balance["field"]["chain_mult_reference"])
+    assert carried == (plain + per_turn * 2) * ref
+    assert carried > plain + per_turn * 2  # 倍率は無料ではない
 
 
 def test_spell_schema_accepts_field(balance):
@@ -466,3 +469,24 @@ def test_resonance_blocked_when_partner_oath_will_fizzle(battle_save, world, bal
     )
     assert not any("歴史の共鳴" in l for l in r1.lines)
     assert not s1.battle.resonance_used  # 1戦闘1回の権利は温存される
+
+
+def test_resonance_amplifies_only_the_oldest_spell(battle_save, world, balance):
+    """増幅を受けるのは時代遅れの初代技のみ(最新技は既に予算いっぱいなので上乗せしない)。"""
+    enemy = battle_save.battle.enemies[0]
+    enemy.max_hp = enemy.hp = 100000
+    enemy.df = 0
+    gen = _set_effect(battle_save, "attacker", 0, [{"tag": "damage", "power": 1.0, "target": "enemy"}], "新星撃", ct=2)
+    gen.id = "sora_gen3"
+    atk = battle_save.member_by_role("attacker")
+    atk.atk, atk.agi = 100, 99  # 最新技が先に着弾する
+    sup = battle_save.member_by_role("support")
+    sup.atk, sup.agi = 100, 50
+    _set_effect(battle_save, "support", 2, [{"tag": "damage", "power": 1.0, "target": "enemy"}], "流星の矢", ct=1)
+    s1, r1 = resolve_turn(
+        battle_save, _cmds(attacker=("アビ1", "敵1"), support=("アビ3", "敵1")), balance, world
+    )
+    assert any("歴史の共鳴" in l for l in r1.lines)
+    dmg = [int(l.split("に")[-1].replace("ダメージ!", "")) for l in r1.lines if "ダメージ!" in l and "の攻撃" not in l]
+    newest_hit, oldest_hit = dmg[0], dmg[1]
+    assert oldest_hit > newest_hit * 1.3  # 初代技だけが現行水準まで引き上げられる
