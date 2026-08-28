@@ -427,3 +427,15 @@ def test_full_auto_continues_after_casting_started(tmp_path):
     )
     after = load_save(root / "save").battle.turn
     assert after - before == 5  # 5ターン走り切る(1ターンで止まらない)
+
+
+def test_broken_close_failure_keeps_state_for_retry(tmp_path, battle_save, balance):
+    """ブレイク後のクローズがAPI失敗したら終端にせず再試行できるようにする。"""
+    enemy = _make_boss(battle_save)
+    battle_save.battle.pr_attack = {
+        "status": "broken", "enemy_id": enemy.id, "pr_number": 77, "branch": "b",
+    }
+    gh = FakePrGhApi()
+    gh.raise_on_comment = True
+    _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
+    assert battle_save.battle.pr_attack["status"] == "broken"

@@ -625,6 +625,7 @@ def _handle_rewind(save: Save, body: str, balance: dict[str, Any], root: str, re
             remaining = int(carried["deadline_turn"]) - save.battle.turn
             carried["deadline_turn"] = restored.battle.turn + max(0, remaining)
         carried["damage_since"] = 0
+        carried.pop("break_need", None)  # 表示用の残り必要ダメージも一緒に捨てる(次のターンで再計算される)
         restored.battle.pr_attack = carried
         restored.battle.recent_log.append("……だが、既に開かれた禁忌の門は時を遡らない。")
     restored.journal.append(
@@ -772,9 +773,12 @@ def _process_pr_attack(
                 gh.close_pull(int(pr["pr_number"]))
                 if pr.get("branch"):
                     gh.delete_branch(str(pr["branch"]))
+                pr["status"] = "broken_closed"
             except RuntimeError as e:
-                print(f"pr_attack: close after break failed ({e})")
-        pr["status"] = "broken_closed"
+                # 終端状態にしない: overrideを持つPRが開いたまま残らないよう次回再試行する
+                print(f"pr_attack: close after break failed ({e}); will retry")
+        else:
+            pr["status"] = "broken_closed"
         notes.append("💥 禁忌の詠唱を打ち破った! 開かれていたPRは封じられた。")
         return notes
 
