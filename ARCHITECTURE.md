@@ -105,3 +105,14 @@ README(ゲーム画面)に新しい戦況ボードが表示される
 - ワークフロー: `concurrency: { group: asteria-turn, cancel-in-progress: false }` で1ターンずつ処理
 - セーブに `processed_issues` を記録。同じIssueが再処理されても状態は変わらない(連投してもセーブが壊れない)
 - エンジンはOpen状態のIssueのみ処理し、処理完了時にクローズする
+
+## M4のギミック(実装の置き場所)
+
+- **残留タグ+チェイン反応**: `battle.py` の `_attach_field` / `_field_and_chain_mult`。反応表と歪み弱点プールは `world.json`(`chain_reactions` / `distortion_weaknesses`)、係数上限は `balance.json`。damage効果の `"field"` 添えタグが反応をトリガーする
+- **誓約(制約タグ)**: 予算乗算は `spells.constraint_multiplier`、発動条件の実行時検証は `commands._constraint_violations`、代償(自己スタン)と使用回数は `battle.py`。しきい値は全て `balance.constraints`
+- **適応進化**: 予告は `battle._check_evolution_triggers`(ターン終了時)、実体化は `_resolve_pending_evolutions`(次ターン冒頭)。演出のみAI(`generation.generate_evolution`、予算検証あり)、数値ボーナスと歪み弱点はスクリプト+セーブ済み乱数
+- **歴史の共鳴**: `battle._detect_resonance`(技IDの `_genN` 世代で判定)。増幅率=初代技コストに対する現在予算の比(上限は `balance.resonance.amp_cap`)
+- **フルオート**: `turn_runner._auto_commands`(決定的採択)+ `_handle_turn` のループ。自由記述「フルオート N」で発動、上限 `balance.full_auto_max_turns`
+- **宿敵**: 敗北時に `Save.nemesis` へ敵の全状態を保存(`battle.resolve_turn`)、再戦の再構築は `battle.nemesis_enemy`、撃破で解消
+- **時戻し**: `turn_runner._handle_rewind`。git履歴(`gitops.history_for_path` / `show_file` / `list_files`)から現在の戦闘の最古のコミットを特定し、save/ を一時ディレクトリ経由で復元して新しいコミットとして積む(履歴改変なし)
+- **PR攻撃**: 状態機械は `battle._check_pr_attack`(純粋)、実PRの作成・監視・強制マージ・後始末は `turn_runner._process_pr_attack`(I/O境界、`gh_api` のPRメソッド使用)。`battle_override.json` は `_merged_balance` が balance に深マージし、戦闘終了時に撤去
