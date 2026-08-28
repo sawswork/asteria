@@ -9,14 +9,8 @@
   "def": 8,
   "agi": 10,
   "ult_gauge": 100,
-  "hate": 11.0,
-  "buffs": [
-    {
-      "stat": "atk",
-      "mult": 1.2,
-      "turns_left": 1
-    }
-  ],
+  "hate": 18.0,
+  "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
   "dots": [],
