@@ -344,3 +344,55 @@ def test_full_auto_stops_when_boss_starts_casting(tmp_path):
     reply = gh.comments[-1][1]
     assert "禁忌の詠唱を始めた" in reply
     assert "8ターンを自動解決" not in reply  # 8ターン走り切っていない
+
+
+def test_boss_pr_attack_end_to_end(tmp_path):
+    """詠唱開始→期限→強制マージ→overrideが次のターンに効く、までを通しで確認する。"""
+    from engine.save_io import load_save, write_save
+    from engine.turn_runner import process_issue
+    from tests.test_turn_runner import all_normal, body_from, make_issue
+
+    root = make_root(tmp_path)
+    save = load_save(root / "save")
+    save.stats["victories"] = 1
+    write_save(save, root / "save")
+    gh = FakePrGhApi()
+    process_issue(make_issue(1, body_from(all_normal())), REPO, str(root), do_git=False, gh=gh)
+
+    # ボスに差し替え、HP60%割れの状態にする
+    save = load_save(root / "save")
+    e = save.battle.enemies[0]
+    e.tier, e.max_hp, e.hp, e.atk = "boss", 4000, 2000, 1
+    write_save(save, root / "save")
+
+    # 詠唱開始(pending)→ 同じIssue処理内で実PRが開かれ casting になる
+    process_issue(make_issue(2, body_from(all_normal())), REPO, str(root), do_git=False, gh=gh)
+    save = load_save(root / "save")
+    assert save.battle.pr_attack["status"] == "casting"
+    assert save.battle.pr_attack["pr_number"] == 77
+    assert gh.pulls[0]["title"].startswith("[Boss Attack]")
+
+    # 期限まで削らずに待つ(ダメージが閾値に届かないよう攻撃力を潰しておく)
+    for m in save.party:
+        m.atk = 1
+    deadline = save.battle.pr_attack["deadline_turn"]
+    write_save(save, root / "save")
+    issue_no = 3
+    while load_save(root / "save").battle.turn <= deadline:
+        process_issue(make_issue(issue_no, body_from(all_normal())), REPO, str(root), do_git=False, gh=gh)
+        issue_no += 1
+
+    save = load_save(root / "save")
+    assert save.battle.pr_attack["status"] == "merged"
+    assert gh.merged == [77]
+    assert (root / OVERRIDE_PATH).exists()  # 歪みが戦場に持ち込まれた
+    assert _merged_balance(root)["damage"]["def_coeff"] == 0.1  # 次のターンから適用される
+
+    # 戦闘を終わらせると歪みは撤去され、PRの後始末も済む
+    save.battle.enemies[0].hp = 1
+    for m in save.party:
+        m.atk = 500
+    write_save(save, root / "save")
+    process_issue(make_issue(issue_no, body_from(all_normal())), REPO, str(root), do_git=False, gh=gh)
+    assert not (root / OVERRIDE_PATH).exists()
+    assert load_save(root / "save").battle.result == "victory"
