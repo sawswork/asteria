@@ -7,9 +7,9 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 ⚔️ 戦闘中: **宿敵・夜哭きの梟との再戦**(ターン8)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦闘シーン](assets/scene.svg?v=i45-a0)
+![戦闘シーン](assets/scene.svg?v=i46-a0)
 
-![戦況ボード](assets/board.svg?v=i45-a0)
+![戦況ボード](assets/board.svg?v=i46-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
@@ -21,6 +21,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 | ✨ **[技生成の儀式](https://github.com/sawswork/asteria/issues/new?template=generate.yml)** | 生成権(残り**0**)を使い、詠唱文から新しい技を紡ぐ |
 | 🔮 **[技アップデート](https://github.com/sawswork/asteria/issues/new?template=update.yml)** | 使い込んだ技の進化3案から選ぶ |
 | ⏪ **[時戻しの儀式](https://github.com/sawswork/asteria/issues/new?template=rewind.yml)** | 生成権1を砕き、今の戦いの始まりへ時を巻き戻す(戦闘中のみ) |
+| 📖 **[旅の書を編む](https://github.com/sawswork/asteria/issues/new?template=book.yml)** | これまでの記録を1冊の書物へ編み直す(何度でも) |
 
 送信後、数十秒でこのページのボードが更新される(結果はIssueにも返信される)。
 現在: **Lv4**(XP 243)/ 技生成権 **0** / 控えメンバー 2人
