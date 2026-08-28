@@ -62,3 +62,35 @@ def test_board_shows_ct_state(battle_save, world, balance):
     battle_save.member_by_role("attacker").abilities[0].ready_in = 2
     svg = build_board_svg(battle_save, world, balance)
     assert "CT2" in svg
+
+
+def test_board_shows_m4_state(battle_save, world, balance):
+    """M4で増えた状態(残留タグ・誓約・進化の兆候・禁忌詠唱)がボードに出る。"""
+    from engine.board import build_board_svg
+    from engine.models import FieldTag
+
+    e = battle_save.battle.enemies[0]
+    e.field_tags.append(FieldTag(name="濡れ星", turns_left=2))
+    e.evolution_pending = {"reason": "hp"}
+    e.weaknesses.append({"field": "雷紋", "mult": 1.5})
+    battle_save.battle.scanned.append(e.id)
+    battle_save.battle.pr_attack = {
+        "status": "casting", "enemy_id": e.id, "deadline_turn": battle_save.battle.turn + 2,
+        "pr_number": 77, "break_need": 40,
+    }
+    battle_save.member_by_role("attacker").abilities[0].constraints = ["once_per_battle"]
+    svg = build_board_svg(battle_save, world, balance)
+    assert "【濡れ星】" in svg
+    assert "進化の兆候" in svg
+    assert "歪み【雷紋】" in svg
+    assert "禁忌詠唱" in svg and "PR #77" in svg and "残り40" in svg
+    assert "⛓" in svg  # 誓約付きの技チップ
+    assert len(svg.encode()) <= 50 * 1024
+
+
+def test_board_hides_unscanned_weakness(battle_save, world, balance):
+    from engine.board import build_board_svg
+
+    battle_save.battle.enemies[0].weaknesses.append({"field": "雷紋", "mult": 1.5})
+    svg = build_board_svg(battle_save, world, balance)
+    assert "歪み【雷紋】" not in svg  # スキャンするまで歪みは見えない

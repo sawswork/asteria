@@ -355,6 +355,7 @@ def _check_pr_attack(ctx: _Ctx) -> None:
             pr["status"] = "deadline"
             _log(ctx, "🕳 詠唱が完成へ向かう——PRが閉じられていなければ、星の理が歪む……")
         else:
+            pr["break_need"] = need - dealt  # ボード表示用(残り必要ダメージ)
             _log(
                 ctx,
                 f"🕳 禁忌の詠唱は続く(打破まであと{need - dealt}ダメージ/猶予{deadline - battle.turn}ターン)",

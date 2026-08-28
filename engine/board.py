@@ -109,13 +109,18 @@ def _member_row(m: Member, y: float, ult_max: int) -> list[str]:
     for i, a in enumerate(m.abilities):
         ok = a.ready_in == 0
         state = "✓" if ok else f"CT{a.ready_in}"
-        label = f"アビ{i + 1} {a.name} {state}"
+        oath = "⛓" if a.constraints else ""  # 誓約付き=条件を満たさないと不発
+        label = f"アビ{i + 1} {oath}{a.name} {state}"
         x = cx0 if i % 2 == 0 else cx1
         parts.append(_chip(x, y + 6 + (i // 2) * 21, chip_w, label, ok))
     ult_ok = m.ult_gauge >= ult_max
+    ult_oath = "⛓" if m.ultimate.constraints else ""
     parts.append(
-        _chip(cx1, y + 27, chip_w, f"奥義 {m.ultimate.name} {'✓' if ult_ok else f'{m.ult_gauge}%'}", ult_ok)
+        _chip(cx1, y + 27, chip_w, f"奥義 {ult_oath}{m.ultimate.name} {'✓' if ult_ok else f'{m.ult_gauge}%'}", ult_ok)
     )
+    tags = " ".join(f"【{t.name}】{t.turns_left}T" for t in m.field_tags)
+    if tags:
+        parts.append(_text(150, y + 64, tags, size=10, fill=GAUGE))
     return parts
 
 
@@ -135,6 +140,25 @@ def _enemy_block(battle: Battle, save: Save, strong_every: int, y: float) -> lis
             until = (strong_every - battle.turn % strong_every) % strong_every
             hint = "⚠ このターン強撃!" if until == 0 else f"次の強撃まで{until}ターン"
             parts.append(_text(620, ey + 34, hint, size=11, fill=ACCENT))
+        marks: list[str] = [f"【{t.name}】{t.turns_left}T" for t in e.field_tags]
+        for w in e.weaknesses:  # 歪みはスキャン済みの敵だけ開示する
+            if e.id in battle.scanned:
+                marks.append(f"歪み【{w.get('field')}】×{w.get('mult', 1.5):g}")
+        if marks:
+            parts.append(_text(340, ey + 52, "  ".join(marks), size=10, fill=GAUGE))
+        if e.evolution_pending:
+            parts.append(_text(20, ey + 54, "⚠ 進化の兆候", size=11, fill=HP_LOW))
+        elif e.evolutions:
+            parts.append(_text(20, ey + 54, f"進化{len(e.evolutions)}回", size=10, fill=SUB))
+    pr = battle.pr_attack or {}
+    if battle.active and pr.get("status") in ("pending", "casting", "deadline"):
+        need = pr.get("break_need")
+        left = int(pr.get("deadline_turn", battle.turn)) - battle.turn
+        num = pr.get("pr_number")
+        label = f"🕳 禁忌詠唱 中(PR #{num})猶予{max(0, left)}ターン" if num else "🕳 禁忌詠唱 が始まった"
+        if need:
+            label += f" / 打破まで残り{need}"
+        parts.append(_text(20, y + 54 + 64 * max(0, len(battle.enemies) - 1), label, size=11, fill=HP_LOW))
     if battle.taunt_turns_left > 0 and battle.taunt_holder_id:
         holder = save.member_by_id(battle.taunt_holder_id)
         if holder and holder.alive:  # 死亡した保持者のロックはエンジン側で解除される(表示も一致させる)
