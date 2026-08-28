@@ -7,9 +7,9 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 ⚔️ 戦闘中: **星屑の亡霊との戦い**(ターン2)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦闘シーン](assets/scene.svg?v=i24-a0)
+![戦闘シーン](assets/scene.svg?v=06e10fb46942)
 
-![戦況ボード](assets/board.svg?v=i24-a0)
+![戦況ボード](assets/board.svg?v=06e10fb46942)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド

@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "quality": 88,
+  "scale": 1.0,
+  "total_b64_bytes": 20628,
+  "background": {
+    "file": "background.webp",
+    "w": 1000,
+    "h": 560
+  },
+  "body": {
+    "file": "body.webp",
+    "w": 241,
+    "h": 351
+  },
+  "parts": [
+    {
+      "file": "part1.webp",
+      "w": 210,
+      "h": 180,
+      "pivot": [
+        0,
+        176
+      ],
+      "z": "front"
+    },
+    {
+      "file": "part2.webp",
+      "w": 210,
+      "h": 180,
+      "pivot": [
+        209,
+        176
+      ],
+      "z": "back"
+    }
+  ]
+}
