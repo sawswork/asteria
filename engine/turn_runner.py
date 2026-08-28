@@ -46,11 +46,44 @@ LABEL_PROCESSED = "turn"
 MAX_PUSH_REPLAYS = 3
 
 SAVE_DIR = "save"
+ASSETS_DIR = "assets"
 BOARD_PATH = "assets/board.svg"
+SCENE_PATH = "assets/scene.svg"
 README_PATH = "README.md"
 WORLD_PATH = "world/world.json"
 BALANCE_PATH = "world/balance.json"
 AI_CONFIG_PATH = "config/ai.json"
+
+
+def prepare_scene(root_path: Path, save: Save, world: dict[str, Any]) -> bool:
+    """新しい戦闘のシーンSVGを生成して書き込む(素材→(任意)Gemini→プレースホルダ)。
+
+    どこかで失敗してもゲームは止めない(シーン無し=ボードのみで続行)。
+    """
+    try:
+        from . import assets as assets_mod
+        from . import gemini as gemini_mod
+        from . import scene as scene_mod
+
+        raw_dir = root_path / assets_mod.RAW_DIR
+        if not assets_mod.has_raw_assets(root_path):
+            enemy = save.battle.enemies[0] if save.battle and save.battle.enemies else None
+            client = gemini_mod.GeminiClient()
+            if enemy is not None and client.available():
+                client.generate_enemy_assets(enemy, world, raw_dir)
+        if assets_mod.has_raw_assets(root_path):
+            try:
+                assets_mod.process_raw_assets(root_path)
+            except Exception as e:
+                print(f"assets: pipeline failed ({type(e).__name__}); using placeholder scene")
+        svg = scene_mod.build_scene_svg(save, world, str(root_path))
+        scene_file = root_path / SCENE_PATH
+        scene_file.parent.mkdir(parents=True, exist_ok=True)
+        scene_file.write_text(svg, encoding="utf-8")
+        return True
+    except Exception as e:
+        print(f"scene: generation failed ({type(e).__name__}); board only")
+        return False
 
 
 def _links(repo_slug: str) -> str:
@@ -349,6 +382,7 @@ def process_issue(
     last_error = ""
     for attempt in range(MAX_PUSH_REPLAYS):
         save = load_save(root_path / SAVE_DIR)
+        battle_was_active = save.battle is not None and save.battle.active
 
         if number in save.processed_issues:
             if gh:
@@ -379,15 +413,23 @@ def process_issue(
         board_file = root_path / BOARD_PATH
         board_file.parent.mkdir(parents=True, exist_ok=True)
         board_file.write_text(svg, encoding="utf-8")
+        # 戦闘開始時のみシーンSVGを生成(素材合成 or プレースホルダ)
+        started_battle = (
+            not battle_was_active and new_save.battle is not None and new_save.battle.active
+        )
+        if started_battle:
+            prepare_scene(root_path, new_save, world)
+        has_scene = (root_path / SCENE_PATH).exists()
         cache_key = f"i{number}-a{attempt}"  # Issue番号で一意(camoキャッシュ回避)
         (root_path / README_PATH).write_text(
-            screen.render_readme(new_save, world, repo_slug, cache_key), encoding="utf-8"
+            screen.render_readme(new_save, world, repo_slug, cache_key, has_scene=has_scene),
+            encoding="utf-8",
         )
 
         pushed = True
         if do_git:
             gitops.configure_identity(root)
-            gitops.commit([SAVE_DIR, BOARD_PATH, README_PATH], f"apply issue #{number}", cwd=root)
+            gitops.commit([SAVE_DIR, ASSETS_DIR, README_PATH], f"apply issue #{number}", cwd=root)
             pushed, last_error = gitops.push_once(cwd=root)
 
         if pushed:

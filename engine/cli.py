@@ -28,8 +28,9 @@ def _write_screen(save, world, balance, root: Path, repo: str, cache_key: str) -
     board_file = root / "assets/board.svg"
     board_file.parent.mkdir(parents=True, exist_ok=True)
     board_file.write_text(svg, encoding="utf-8")
+    has_scene = (root / "assets/scene.svg").exists()
     (root / "README.md").write_text(
-        screen.render_readme(save, world, repo, cache_key), encoding="utf-8"
+        screen.render_readme(save, world, repo, cache_key, has_scene=has_scene), encoding="utf-8"
     )
 
 
@@ -43,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--write", action="store_true", help="セーブ・ボード・READMEを書き込む")
     parser.add_argument("--reset", action="store_true", help="初期セーブを再生成する")
+    parser.add_argument("--process-assets", action="store_true", help="assets/raw/ を処理してシーンを再合成する")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--mock", action="store_true", help="AI応答をfixturesの固定JSONにする(M1では未使用)")
     args = parser.parse_args(argv)
@@ -58,12 +60,31 @@ def main(argv: list[str] | None = None) -> int:
         print(f"初期セーブを生成しました: {args.save} (seed={args.seed})")
         return 0
 
+    if args.process_assets:
+        from . import assets as assets_mod
+        from . import scene as scene_mod
+
+        manifest = assets_mod.process_raw_assets(root)
+        if manifest is None:
+            print("assets/raw/ に素材がありません")
+            return 0
+        print(f"素材を処理しました(品質{manifest['quality']}・縮尺{manifest['scale']}・合計{manifest['total_b64_bytes']}B)")
+        save = load_save(root / args.save)
+        if save.battle is not None and save.battle.active:
+            svg = scene_mod.build_scene_svg(save, world, str(root))
+            (root / "assets/scene.svg").write_text(svg, encoding="utf-8")
+            _write_screen(save, world, balance, root, args.repo, "local")
+            print("シーンを再合成しました: assets/scene.svg")
+        return 0
+
     if not args.input:
-        parser.error("--input か --reset のどちらかを指定してください")
+        parser.error("--input か --reset か --process-assets を指定してください")
 
     ai = AiClient(mock=args.mock, fixtures_dir=root / "fixtures/ai", config_path=root / "config/ai.json")
     save = load_save(root / args.save)
+    started_new_battle = False
     if save.battle is None or not save.battle.active:
+        started_new_battle = True
         is_first = (save.stats.get("victories", 0) + save.stats.get("defeats", 0)) == 0
         if is_first:
             save = battle_mod.start_battle(save, world, balance)
@@ -107,6 +128,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.write:
         write_save(new, root / args.save)
+        if started_new_battle:
+            from .turn_runner import prepare_scene
+
+            prepare_scene(root, new, world)
         _write_screen(new, world, balance, root, args.repo, "local")
         print("セーブ・ボード・READMEを更新しました。")
     else:

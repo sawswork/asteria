@@ -37,10 +37,21 @@ def _esc(s: str) -> str:
     )
 
 
-def _text(x: float, y: float, s: str, size: int = 13, fill: str = TEXT, weight: str = "normal", anchor: str = "start") -> str:
+def _text(
+    x: float,
+    y: float,
+    s: str,
+    size: int = 13,
+    fill: str = TEXT,
+    weight: str = "normal",
+    anchor: str = "start",
+    anim: str = "",
+) -> str:
+    # 注意: 静的な opacity="0" は使わない(SMILが動かない環境で永久に不可視になるため)。
+    # 出現演出は「基底=可視、アニメ側が t=0 から 0 を保持して後で 1 へ」方式にする。
     return (
         f'<text x="{x:g}" y="{y:g}" font-size="{size}" fill="{fill}" '
-        f'font-weight="{weight}" text-anchor="{anchor}" font-family="{FONT}">{_esc(s)}</text>'
+        f'font-weight="{weight}" text-anchor="{anchor}" font-family="{FONT}">{_esc(s)}{anim}</text>'
     )
 
 
@@ -198,9 +209,25 @@ def build_board_svg(save: Save, world: dict[str, Any], balance: dict[str, Any]) 
         f'<rect x="12" y="{y_log}" width="{WIDTH - 24}" height="{log_h}" rx="8" fill="{PANEL}" stroke="{PANEL_LINE}"/>'
     )
     parts.append(_text(20, y_log + 20, "📜 戦況ログ", size=12, fill=SUB, weight="bold"))
+    # ターンリプレイ演出: 直近ターンの行(最後の「——」以降)をSMILで順次表示する
+    replay_start = 0
+    for i, line in enumerate(log_lines):
+        if line.startswith("——"):
+            replay_start = i
+    replay_count = len(log_lines) - replay_start
+    total_dur = max(1.0, replay_count * 0.45 + 0.4)
     for i, line in enumerate(log_lines):
         shown = line if len(line) <= 58 else line[:57] + "…"
-        parts.append(_text(20, y_log + 40 + i * 17, shown, size=12, fill=TEXT))
+        anim = ""
+        if battle and battle.active and i >= replay_start:
+            delay = (i - replay_start) * 0.45
+            a = min(0.999, delay / total_dur)
+            b = min(1.0, (delay + 0.35) / total_dur)
+            anim = (
+                f'<animate attributeName="opacity" values="0;0;1;1" '
+                f'keyTimes="0;{a:.3f};{b:.3f};1" dur="{total_dur:.2f}s" begin="0s" fill="freeze"/>'
+            )
+        parts.append(_text(20, y_log + 40 + i * 17, shown, size=12, fill=TEXT, anim=anim))
 
     parts.append(
         _text(20, height - 8, f"技生成権 {save.spell_tokens} / 控え {len(save.roster_extra)}人", size=9, fill=SUB)

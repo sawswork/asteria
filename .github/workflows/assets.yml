@@ -1,0 +1,42 @@
+name: assets
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "assets/raw/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: asteria-turn  # ターン処理と同じグループで直列化(セーブ/画面の競合を防ぐ)
+  cancel-in-progress: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install jsonschema Pillow numpy
+      - name: Process raw assets and recompose scene
+        run: python -m engine.cli --process-assets
+      - name: Commit results
+        run: |
+          git config user.name "rpg-engine[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets README.md
+          if git diff --cached --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "assets: recompose scene from raw materials"
+            git push
+          fi

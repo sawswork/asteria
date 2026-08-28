@@ -19,14 +19,21 @@ def _prefill_link(repo_slug: str, fields: dict[str, str]) -> str:
     return f"https://github.com/{repo_slug}/issues/new?template={TEMPLATE_FILE}&{params}"
 
 
-def render_readme(save: Save, world: dict[str, Any], repo_slug: str, cache_key: str) -> str:
+def render_readme(
+    save: Save, world: dict[str, Any], repo_slug: str, cache_key: str, has_scene: bool = False
+) -> str:
     world_name = str(world["world_name"])
     tagline = str(world.get("tagline", ""))
     gauge_term = str(world["power_system"]["ult_gauge_term"])
     if cache_key == "local":
         board_url = "assets/board.svg"  # ローカル生成・初期コミット用
+        scene_url = "assets/scene.svg"
     else:
         board_url = f"assets/board.svg?v={cache_key}"
+        scene_url = f"assets/scene.svg?v={cache_key}"
+    scene_block = ""
+    if has_scene and save.battle and save.battle.active:
+        scene_block = f"![戦闘シーン]({scene_url})\n\n"
     new_turn_url = f"https://github.com/{repo_slug}/issues/new?template={TEMPLATE_FILE}"
     all_normal_url = _prefill_link(
         repo_slug,
@@ -70,7 +77,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 {status}
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード]({board_url})
+{scene_block}![戦況ボード]({board_url})
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド

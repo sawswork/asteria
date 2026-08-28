@@ -30,7 +30,10 @@ engine/                 ゲームエンジン(Python パッケージ。世界の
   prompts.py            AIプロンプト構築(純粋関数。世界観+旅の記憶を同梱)
   ai_client.py          AI呼び出し境界(claude CLI ヘッドレス+スキーマ検証+リトライ)。--mock でfixtures固定応答
   turn_ai.py            ターン処理のAI同梱呼び出し(敵知能層判断+ログ味付け。失敗=ルール層)
-  generation.py         生成系オーケストレーション(技/3案/敵/勧誘。検証→却下ならフォールバック)
+  generation.py         生成系オーケストレーション(技/3案/敵/勧誘。検証→却下なら再生成→フォールバック)
+  assets.py             素材パイプライン(クロマキー→連結成分分離→WebP+サイズ予算の梯子→manifest)
+  scene.py              シーンSVG(戦闘開始時のみ。素材base64内包 or プレースホルダ。SMIL演出)
+  gemini.py             Gemini画像生成境界(任意。GEMINI_API_KEYがあれば敵素材3枚を自動生成)
   gh_api.py             GitHub REST境界(コメント投稿・Issueクローズ)。GITHUB_TOKEN使用
   gitops.py             git操作境界(add/commit/push、SHA取得)
   turn_runner.py        Actionsエントリ: イベント→検証→解決→保存→画面→返信→クローズ
@@ -42,7 +45,10 @@ save/                   セーブ(スキーマv2)
   spells/<id>.json      技1つ1ファイル(差し替え後も残る=魔導書・成長史)
   log.md                旅の記憶(AIプロンプトに同梱)
 assets/
-  board.svg             最新の戦況ボード(毎ターン再生成)
+  board.svg             最新の戦況ボード(毎ターン再生成・直近ターンのSMILリプレイ付き)
+  scene.svg             戦闘シーン(戦闘開始時のみ再生成。素材内包 or プレースホルダ)
+  raw/                  素材の入力置き場(単色緑背景画像。置くとassets.ymlが合成)
+  parts/                加工済み素材(WebP+manifest.json)
 fixtures/               CLI/テスト用の固定入力(ターンJSON・Issue本文サンプル・AIモック応答)
 tests/                  pytest(全てAIモックで実行)
 .github/
@@ -51,6 +57,7 @@ tests/                  pytest(全てAIモックで実行)
   ISSUE_TEMPLATE/update.yml     技アップデートフォーム(3案提示→選択の2段階)
   workflows/turn.yml            Issue処理ワークフロー([TURN]/[GENERATE]/[UPDATE] 共通・直列化)
   workflows/ci.yml              push時に pytest を実行
+  workflows/assets.yml          assets/raw/ へのpushで素材パイプライン→シーン再合成
   workflows/tag.yml             マイルストーンタグ付け(workflow_dispatch)
 ```
 
