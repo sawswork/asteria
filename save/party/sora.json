@@ -4,12 +4,12 @@
   "name": "ソラ",
   "title": "星剣士",
   "max_hp": 116,
-  "hp": 116,
+  "hp": 79,
   "atk": 22,
   "def": 11,
   "agi": 17,
-  "ult_gauge": 30,
-  "hate": 157.0,
+  "ult_gauge": 65,
+  "hate": 165.0,
   "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
@@ -23,11 +23,11 @@
   },
   "slot_state": {
     "ability1": {
-      "ready_in": 1,
+      "ready_in": 0,
       "battle_uses": 1
     },
     "ability2": {
-      "ready_in": 2,
+      "ready_in": 1,
       "battle_uses": 1
     },
     "ability3": {
