@@ -147,7 +147,10 @@ class AiClient:
         except subprocess.TimeoutExpired as e:
             raise AiError("claude CLI タイムアウト") from e
         if result.returncode != 0:
-            raise AiError(f"claude CLI 異常終了(code={result.returncode})")
+            # 異常終了の中身が分からないと原因を追えない。stderrの要約だけ添える
+            # (応答本文ではなくエラー出力。gitopsのGitErrorと同じ方針)
+            detail = " ".join((result.stderr or "").split())[:200]
+            raise AiError(f"claude CLI 異常終了(code={result.returncode}): {detail}")
         try:
             envelope = json.loads(result.stdout)
         except json.JSONDecodeError as e:
