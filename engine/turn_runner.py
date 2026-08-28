@@ -313,6 +313,7 @@ def _handle_turn(
         deadline_s = float(balance.get("full_auto_deadline_seconds", 720))
         auto_started = time.monotonic()
         stopped_early = False
+        boss_call = False
         turns_done = 1
         while turns_done < limit and not report.result and new_save.battle and new_save.battle.active:
             auto_cmds = _auto_commands(new_save, balance)
@@ -325,7 +326,14 @@ def _handle_turn(
                 # AI応答が遅い日でもジョブ制限に達しないよう、実時間で自動送りを打ち切る
                 stopped_early = True
                 break
+            if new_save.battle and new_save.battle.pr_attack:
+                # ボスの禁忌詠唱が始まったら自動送りを止めてプレイヤーに返す
+                # (自動送りのまま倒しきると、PR攻撃が一度も現れないまま終わってしまう)
+                boss_call = True
+                break
         auto_note = f"🤖 フルオート: {turns_done}ターンを自動解決(指定{limit}ターン上限)"
+        if boss_call:
+            auto_note += "。**ボスが禁忌の詠唱を始めた**ため自動送りを止めました——ここからは自分の手で"
         if stopped_early:
             auto_note += "。時間上限に達したため、ここで自動送りを止めました(続きは次のターン入力から)"
 
@@ -673,15 +681,36 @@ def _process_pr_attack(
                 gh.close_pull(int(pr["pr_number"]))
                 if pr.get("branch"):
                     gh.delete_branch(str(pr["branch"]))
+                pr["status"] = "closed_battle_end"
             except RuntimeError as e:
-                print(f"pr_attack: cleanup failed ({e})")
-            pr["status"] = "closed_battle_end"
+                # 終端状態にしない: overrideを持つPRが開いたまま放置されないよう次回再試行する
+                print(f"pr_attack: cleanup failed ({e}); will retry")
         return notes
 
     if not pr:
         return notes
     status = str(pr.get("status", ""))
     enemy_name = next((e.name for e in battle.enemies if e.id == pr.get("enemy_id")), "ボス")
+
+    # 実PRが既に決着している場合、そちらを真実とする。push拒否のリプレイでは同じターンが
+    # 別のルール(マージ済みの歪み)で再解決されるため、盤面側の再計算だけを信じると
+    # 「強制マージ済みなのにブレイク成立」といった食い違いが起きる。
+    if gh and pr.get("pr_number") and status in ("casting", "deadline", "broken"):
+        try:
+            actual = gh.get_pull(int(pr["pr_number"]))
+        except RuntimeError as e:
+            print(f"pr_attack: state check failed ({e})")
+            actual = {}
+        if actual.get("merged"):
+            if status != "merged":
+                override_file.write_text(_override_json_text(balance, enemy_name), encoding="utf-8")
+                pr["status"] = "merged"
+                notes.append("🕳 禁忌の詠唱は既に完成していた——歪みは戦場を覆ったままだ。")
+            return notes
+        if actual.get("state") == "closed" and status in ("casting", "deadline"):
+            pr["status"] = "sealed"
+            notes.append("🛡 PRは閉じられていた——禁忌の詠唱は封じられた!")
+            return notes
 
     if status == "pending":
         deadline = battle.turn + int(pa.get("deadline_turns", 3)) - 1
@@ -693,7 +722,13 @@ def _process_pr_attack(
         try:
             base = _base_branch(root_path)
             branch = f"boss-attack-{pr.get('enemy_id', 'boss')}-t{battle.turn}"
-            gh.create_branch(branch, gh.get_branch_sha(base))
+            existing = gh.find_open_pull_by_head(branch)
+            if existing:  # リプレイで再入した: 既に開いたPRを引き継ぐ(2本目を作らない)
+                pr.update({"status": "casting", "pr_number": existing, "branch": branch})
+                notes.append(f"🕳 **{enemy_name}の禁忌詠唱!** PR #{existing} が既に開かれている。")
+                return notes
+            if not gh.branch_exists(branch):
+                gh.create_branch(branch, gh.get_branch_sha(base))
             gh.put_file(
                 OVERRIDE_PATH,
                 _override_json_text(balance, enemy_name),

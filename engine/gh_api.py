@@ -101,6 +101,23 @@ class GhApi:
         )
         return int(pr["number"])
 
+    def find_open_pull_by_head(self, branch: str) -> int:
+        """headブランチが branch のオープンPR番号(無ければ0)。リプレイでの二重作成を防ぐ。"""
+        owner = self.repo_slug.split("/")[0]
+        pulls = self._request(
+            "GET", f"/repos/{self.repo_slug}/pulls?state=open&head={owner}:{branch}&per_page=1"
+        )
+        if isinstance(pulls, list) and pulls:
+            return int(pulls[0]["number"])
+        return 0
+
+    def branch_exists(self, name: str) -> bool:
+        try:
+            self._request("GET", f"/repos/{self.repo_slug}/git/ref/heads/{name}")
+            return True
+        except RuntimeError:
+            return False
+
     def get_pull(self, number: int) -> dict[str, Any]:
         """{"state": "open"|"closed", "merged": bool} を返す。"""
         pr = self._request("GET", f"/repos/{self.repo_slug}/pulls/{number}")
