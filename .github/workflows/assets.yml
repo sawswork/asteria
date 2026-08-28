@@ -28,7 +28,8 @@ jobs:
           python-version: "3.12"
       - run: pip install jsonschema Pillow numpy
       - name: Process raw assets and recompose scene
-        run: python -m engine.cli --process-assets
+        # READMEのリンクとキャッシュキーに実リポジトリ情報を使う(cli側でも環境変数から拾う)
+        run: python -m engine.cli --process-assets --repo "$GITHUB_REPOSITORY"
       - name: Commit results
         run: |
           git config user.name "rpg-engine[bot]"

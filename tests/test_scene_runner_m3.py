@@ -62,6 +62,82 @@ def test_gemini_client_without_key_is_unavailable(monkeypatch):
     assert GeminiClient().available() is False
 
 
+def test_scene_failure_removes_stale_scene(tmp_path, monkeypatch):
+    """シーン生成に失敗したら前の戦闘のシーンは消え、READMEにも載らない。"""
+    root = make_root(tmp_path)
+    run(root, make_issue(1, body_from(all_normal())))
+    assert (root / "assets/scene.svg").exists()
+    # 勝利→次の戦闘開始時にシーン生成を必ず失敗させる
+    save = load_save(root / "save")
+    save.battle.enemies[0].hp = 1
+    write_save(save, root / "save")
+    run(root, make_issue(2, body_from(all_normal())))  # 勝利(戦闘終了)
+    import engine.scene as scene_mod
+
+    def boom(*a, **k):
+        raise RuntimeError("scene broken")
+
+    monkeypatch.setattr(scene_mod, "build_scene_svg", boom)
+    run(root, make_issue(3, body_from(all_normal())))  # 新戦闘(シーン失敗)
+    assert not (root / "assets/scene.svg").exists()
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "assets/scene.svg" not in readme
+
+
+def test_gemini_regenerates_for_new_enemy_and_respects_user_materials(tmp_path, monkeypatch, world):
+    """AI生成素材は敵が変わると作り直す。ユーザー素材(マーカー無し)は温存する。"""
+    import base64 as b64
+    from engine.models import Enemy
+    from engine.turn_runner import _maybe_generate_materials
+    from engine.save_io import load_save as _load
+
+    calls = {"n": 0}
+    png_1x1 = b64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    )
+
+    class FakeResp:
+        def read(self):
+            calls["n"] += 1
+            return json.dumps(
+                {"candidates": [{"content": {"parts": [{"inlineData": {"data": b64.b64encode(png_1x1).decode()}}]}}]}
+            ).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout=0: FakeResp())
+
+    root = make_root(tmp_path)
+    save = load_save(root / "save")
+
+    def battle_with(enemy_id: str):
+        from engine.battle import start_battle
+
+        enemy = Enemy(id=enemy_id, name="敵", title="", max_hp=10, hp=10, atk=1, df=1, agi=1,
+                      actions={"normal": {"name": "n", "effects": []}})
+        return start_battle(save, world, {"hate": {"initial": 5}}, enemies=[enemy], battle_name="b")
+
+    s1 = battle_with("enemy_a")
+    _maybe_generate_materials(root, s1, world)
+    assert calls["n"] == 3  # 3枚生成
+    assert (root / "assets/raw/.generated.json").exists()
+    _maybe_generate_materials(root, s1, world)
+    assert calls["n"] == 3  # 同じ敵では再生成しない
+    s2 = battle_with("enemy_b")
+    _maybe_generate_materials(root, s2, world)
+    assert calls["n"] == 6  # 敵が変われば作り直す
+    # ユーザー素材(マーカー削除=手置き扱い)は温存
+    (root / "assets/raw/.generated.json").unlink()
+    s3 = battle_with("enemy_c")
+    _maybe_generate_materials(root, s3, world)
+    assert calls["n"] == 6  # 生成しない
+
+
 def test_gemini_generates_assets_with_mocked_api(monkeypatch, tmp_path, world):
     import base64
 

@@ -76,11 +76,10 @@ def _enemy_silhouette(enemy: Enemy) -> str:
 
 
 def _enemy_from_parts(root: str, manifest: dict[str, Any]) -> str:
+    """胴体+可動パーツを素材の生解像度で組み、全体を一括スケールして枠内に収める。"""
     parts_svg: list[str] = []
     body = manifest.get("body")
-    scale = 1.0
-    if body:
-        scale = min(1.0, 300 / max(1, body["w"]), 250 / max(1, body["h"]))
+    part_list = list(manifest.get("parts", []))
 
     def flap(pivot_x: float, pivot_y: float, phase: float) -> str:
         return (
@@ -89,18 +88,20 @@ def _enemy_from_parts(root: str, manifest: dict[str, Any]) -> str:
             f'dur="2.2s" begin="{phase:g}s" repeatCount="indefinite"/>'
         )
 
-    # 可動パーツは胴体の肩位置(左右)にpivotが来るよう配置し、pivot中心で羽ばたかせる
-    bw = (body["w"] * scale) if body else 200
-    bh = (body["h"] * scale) if body else 180
+    # 生解像度での寸法と肩の取り付け点
+    bw = body["w"] if body else 200
+    bh = body["h"] if body else 180
     attach_points = [(-bw * 0.22, -bh * 0.55 + 40), (bw * 0.22, -bh * 0.55 + 40)]
-    back_parts = [p for p in manifest.get("parts", []) if p.get("z") == "back"]
-    front_parts = [p for p in manifest.get("parts", []) if p.get("z") != "back"]
+    max_extent = bw / 2  # 中心からの最大横幅(スケールとX位置の決定用)
+    back_parts = [p for p in part_list if p.get("z") == "back"]
+    front_parts = [p for p in part_list if p.get("z") != "back"]
     for i, p in enumerate(back_parts + front_parts):
         is_front = p.get("z") != "back"
         uri = assets.part_data_uri(root, p["file"])
         px, py = p.get("pivot", [0, p["h"] // 2])
         ax, ay = attach_points[i % len(attach_points)]
         x, y = ax - px, ay - py
+        max_extent = max(max_extent, abs(x) + p["w"], abs(x))
         piece = (
             f'<g transform="translate({x:g} {y:g})">'
             f'<image href="{uri}" width="{p["w"]}" height="{p["h"]}"/>'
@@ -111,22 +112,22 @@ def _enemy_from_parts(root: str, manifest: dict[str, Any]) -> str:
     body_svg = ""
     if body:
         uri = assets.part_data_uri(root, body["file"])
-        bw, bh = body["w"] * scale, body["h"] * scale
-        body_svg = (
-            f'<image href="{uri}" x="{-bw / 2:g}" y="{-bh + 40:g}" width="{bw:g}" height="{bh:g}"/>'
-        )
+        body_svg = f'<image href="{uri}" x="{-bw / 2:g}" y="{-bh + 40:g}" width="{bw}" height="{bh}"/>'
 
     inner = (
         "".join(svg for z, svg in parts_svg if z == "back")
         + body_svg
         + "".join(svg for z, svg in parts_svg if z == "front")
     )
+    # 全体スケール: 高さ260・片側の横幅220に収める
+    scale = min(1.0, 260 / max(1, bh), 220 / max(1.0, max_extent))
+    cx = min(540.0, W - 20 - max_extent * scale)  # 右端がはみ出すなら中心を左へ寄せる
     return (
-        '<g transform="translate(540 300)">'
+        f'<g transform="translate({cx:g} 300)">'
         "<g>"
         '<animateTransform attributeName="transform" type="translate" additive="sum" '
         'values="0 0; 0 -6; 0 0" dur="3.2s" repeatCount="indefinite"/>'
-        f"{inner}</g></g>"
+        f'<g transform="scale({scale:g})">{inner}</g></g></g>'
     )
 
 
@@ -157,12 +158,14 @@ def build_scene_svg(save: Save, world: dict[str, Any], root: str = ".") -> str:
 
     parts: list[str] = []
     parts.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">')
-    parts.append(_procedural_background(world))
-
     if manifest and manifest.get("background"):
+        # 背景画像がある時は手続き的背景を省略(マークアップと容量の節約)
+        parts.append(f'<rect width="{W}" height="{H}" fill="#0a1030"/>')
         bg = manifest["background"]
         uri = assets.part_data_uri(root, bg["file"])
         parts.append(f'<image href="{uri}" x="0" y="0" width="{W}" height="{H}" preserveAspectRatio="xMidYMid slice"/>')
+    else:
+        parts.append(_procedural_background(world))
 
     # 敵(登場アニメ: フェード+降下)。静的opacity=0は使わない(SMIL非対応環境で不可視になるため)
     parts.append("<g>")

@@ -70,16 +70,30 @@ def test_pipeline_generates_parts_and_manifest(tmp_path):
     assert loaded == manifest
 
 
-def test_pipeline_budget_ladder_shrinks_huge_input(tmp_path):
+def test_pipeline_budget_ladder_shrinks_huge_input(tmp_path, monkeypatch):
     raw = tmp_path / "assets/raw"
     raw.mkdir(parents=True)
-    # ノイズだらけの巨大背景(圧縮が効きにくい)でも予算内に収める
+    # ノイズだらけの巨大背景(圧縮が効きにくい)。梯子が実際に段階を下げることを検証する
     rng = np.random.default_rng(1)
     noisy = rng.integers(0, 255, size=(1400, 2600, 3), dtype=np.uint8)
     Image.fromarray(noisy, "RGB").save(raw / "background.png")
+    monkeypatch.setattr(assets, "SCENE_BUDGET_TARGET", 120 * 1024)  # 最上段では収まらない目標
     manifest = assets.process_raw_assets(tmp_path)
     assert manifest is not None
-    assert manifest["total_b64_bytes"] <= assets.SCENE_BUDGET_MAX
+    assert manifest["total_b64_bytes"] <= 120 * 1024
+    assert manifest["quality"] < assets.QUALITY_LADDER[0] or manifest["scale"] < 1.0  # 段階ダウンが働いた
+
+
+def test_pipeline_raises_when_budget_impossible(tmp_path, monkeypatch):
+    raw = tmp_path / "assets/raw"
+    raw.mkdir(parents=True)
+    rng = np.random.default_rng(2)
+    noisy = rng.integers(0, 255, size=(900, 1600, 3), dtype=np.uint8)
+    Image.fromarray(noisy, "RGB").save(raw / "background.png")
+    monkeypatch.setattr(assets, "SCENE_BUDGET_TARGET", 1000)
+    monkeypatch.setattr(assets, "SCENE_BUDGET_MAX", 2000)  # 最小設定でも入らない上限
+    with pytest.raises(ValueError):
+        assets.process_raw_assets(tmp_path)
 
 
 def test_pipeline_without_raw_returns_none(tmp_path):
@@ -99,13 +113,47 @@ def test_placeholder_scene_is_valid_and_small(battle_save, world, tmp_path):
 
 
 def test_scene_with_parts_embeds_base64(battle_save, world, tmp_path):
-    _make_raw(tmp_path)
-    assets.process_raw_assets(tmp_path)
+    manifest = assets.process_raw_assets(_make_raw(tmp_path))
     svg = build_scene_svg(battle_save, world, str(tmp_path))
     ET.fromstring(svg)
     assert "data:image/webp;base64," in svg
-    assert svg.count("animateTransform") >= 3  # 待機+羽ばたき
+    assert svg.count('type="rotate"') >= 2  # 翼2枚がpivot中心で羽ばたく
     assert len(svg.encode()) <= SCENE_MAX_BYTES
+    # pivotヒューリスティック: 左向きの翼=右端が付け根 / 右向きの翼=左端が付け根
+    pivots = sorted(p["pivot"][0] for p in manifest["parts"])
+    assert pivots[0] == 0
+    assert pivots[1] >= manifest["parts"][0]["w"] - 2
+
+
+def test_pipeline_cleans_stale_parts(tmp_path):
+    root = _make_raw(tmp_path)
+    assets.process_raw_assets(root)
+    assert (root / "assets/parts/part2.webp").exists()
+    # 翼1枚の素材に差し替えたら、旧part2は残らない
+    (root / "assets/raw/wing.png").unlink()
+    part = _green_image((300, 200))
+    d = ImageDraw.Draw(part)
+    d.polygon([(30, 100), (200, 30), (200, 170)], fill=(60, 40, 80))
+    part.save(root / "assets/raw/wing.png")
+    manifest = assets.process_raw_assets(root)
+    assert len(manifest["parts"]) == 1
+    assert not (root / "assets/parts/part2.webp").exists()
+
+
+def test_exif_orientation_respected(tmp_path):
+    raw = tmp_path / "assets/raw"
+    raw.mkdir(parents=True)
+    body = _green_image((400, 200))  # 横長で保存するがEXIFで縦向き指定
+    d = ImageDraw.Draw(body)
+    d.ellipse([50, 40, 350, 160], fill=(90, 60, 40))
+    from PIL import Image as PILImage
+
+    exif = PILImage.Exif()
+    exif[0x0112] = 6  # Orientation: 90度回転
+    body.save(raw / "body.jpg", exif=exif)
+    manifest = assets.process_raw_assets(tmp_path)
+    b = manifest["body"]
+    assert b["h"] > b["w"]  # 縦向きに正されている
 
 
 def test_board_has_turn_replay_animation(battle_save, balance, world):

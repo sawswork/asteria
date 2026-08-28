@@ -11,6 +11,13 @@ sys.path.insert(0, str(ROOT))
 from engine.save_io import load_json, new_save  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _no_external_keys(monkeypatch):
+    """テストが実APIへ出ないよう、外部キーを常に外す。"""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+
+
 @pytest.fixture()
 def world() -> dict:
     return load_json(ROOT / "world/world.json")

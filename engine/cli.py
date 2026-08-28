@@ -20,7 +20,11 @@ from .commands import Command, validate_commands
 from .rng import Rng
 from .save_io import DEFAULT_SEED, load_json, load_save, new_save, write_save
 
-DEFAULT_REPO = "OWNER/REPO"  # ローカル表示用のプレースホルダ(実機はGITHUB_REPOSITORYを使う)
+import os as _os
+
+# Actions内では GITHUB_REPOSITORY / GITHUB_SHA を自動で使う(READMEのリンク・キャッシュキー用)
+DEFAULT_REPO = _os.environ.get("GITHUB_REPOSITORY", "OWNER/REPO")
+DEFAULT_CACHE_KEY = _os.environ.get("GITHUB_SHA", "local")[:12] or "local"
 
 
 def _write_screen(save, world, balance, root: Path, repo: str, cache_key: str) -> None:
@@ -56,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.reset:
         save = new_save(world, balance, seed=args.seed)
         write_save(save, root / args.save)
-        _write_screen(save, world, balance, root, args.repo, "local")
+        _write_screen(save, world, balance, root, args.repo, DEFAULT_CACHE_KEY)
         print(f"初期セーブを生成しました: {args.save} (seed={args.seed})")
         return 0
 
@@ -73,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         if save.battle is not None and save.battle.active:
             svg = scene_mod.build_scene_svg(save, world, str(root))
             (root / "assets/scene.svg").write_text(svg, encoding="utf-8")
-            _write_screen(save, world, balance, root, args.repo, "local")
+            _write_screen(save, world, balance, root, args.repo, DEFAULT_CACHE_KEY)
             print("シーンを再合成しました: assets/scene.svg")
         return 0
 
@@ -131,8 +135,8 @@ def main(argv: list[str] | None = None) -> int:
         if started_new_battle:
             from .turn_runner import prepare_scene
 
-            prepare_scene(root, new, world)
-        _write_screen(new, world, balance, root, args.repo, "local")
+            prepare_scene(root, new, world, allow_generation=not args.mock)
+        _write_screen(new, world, balance, root, args.repo, DEFAULT_CACHE_KEY)
         print("セーブ・ボード・READMEを更新しました。")
     else:
         print("(ドライラン: セーブは変更されていません。--write で反映)")

@@ -21,17 +21,19 @@ from typing import Any
 
 try:  # 画像処理系はパイプライン実行時のみ必要(シーン生成はmanifest+バイト列だけで動く)
     import numpy as np
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:  # pragma: no cover - CI/実行環境では常に入っている
     np = None  # type: ignore[assignment]
     Image = None  # type: ignore[assignment]
+    ImageOps = None  # type: ignore[assignment]
 
 RAW_DIR = "assets/raw"
 PARTS_DIR = "assets/parts"
 MANIFEST = "manifest.json"
 
 SCENE_BUDGET_TARGET = 500 * 1024  # base64換算の目標
-SCENE_BUDGET_MAX = 1024 * 1024  # 上限
+MARKUP_HEADROOM = 64 * 1024  # SVGマークアップ+プレースホルダ分の余白
+SCENE_BUDGET_MAX = 1024 * 1024 - MARKUP_HEADROOM  # 素材合計の上限(シーン全体で1MBを守る)
 QUALITY_LADDER = (88, 80, 70, 60)
 SCALE_LADDER = (1.0, 0.85, 0.7, 0.55)
 
@@ -187,6 +189,7 @@ def process_raw_assets(root: str | Path = ".") -> dict[str, Any] | None:
         kind = classify_raw(f.name)
         img = Image.open(f)
         img.load()
+        img = ImageOps.exif_transpose(img)  # スマホ縦写真の向きを正す
         if kind == "background":
             background = _limit_resolution(img.convert("RGB"), "background")
         elif kind == "part":
@@ -224,6 +227,9 @@ def process_raw_assets(root: str | Path = ".") -> dict[str, Any] | None:
 
     parts_dir = root_path / PARTS_DIR
     parts_dir.mkdir(parents=True, exist_ok=True)
+    for stale in parts_dir.glob("*"):  # 前回の敵の残骸(孤児WebP・旧manifest)を残さない
+        if stale.suffix.lower() in (".webp", ".json"):
+            stale.unlink()
     for name, data in chosen["encoded"].items():
         (parts_dir / name).write_bytes(data)
 

@@ -55,22 +55,55 @@ BALANCE_PATH = "world/balance.json"
 AI_CONFIG_PATH = "config/ai.json"
 
 
-def prepare_scene(root_path: Path, save: Save, world: dict[str, Any]) -> bool:
+GENERATED_MARKER = "assets/raw/.generated.json"  # Gemini生成素材の由来(敵ID)を記録
+
+
+def _maybe_generate_materials(root_path: Path, save: Save, world: dict[str, Any]) -> None:
+    """Gemini素材の生成判断。ユーザーが置いた素材(マーカー無し)は決して上書きしない。"""
+    from . import assets as assets_mod
+    from . import gemini as gemini_mod
+
+    enemy = save.battle.enemies[0] if save.battle and save.battle.enemies else None
+    if enemy is None:
+        return
+    client = gemini_mod.GeminiClient()
+    if not client.available():
+        return
+    raw_dir = root_path / assets_mod.RAW_DIR
+    marker = root_path / GENERATED_MARKER
+    if assets_mod.has_raw_assets(root_path):
+        if not marker.exists():
+            return  # ユーザー素材が優先(自動生成で置き換えない)
+        try:
+            if json.loads(marker.read_text(encoding="utf-8")).get("enemy_id") == enemy.id:
+                return  # 同じ敵の生成済み素材を再利用
+        except (OSError, json.JSONDecodeError):
+            pass
+        # 敵が変わった: 旧AI生成素材を消して作り直す
+        for f in raw_dir.iterdir():
+            if f.suffix.lower() in assets_mod.RAW_EXTS:
+                f.unlink()
+    if client.generate_enemy_assets(enemy, world, raw_dir) > 0:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({"enemy_id": enemy.id}, ensure_ascii=False), encoding="utf-8")
+
+
+def prepare_scene(
+    root_path: Path, save: Save, world: dict[str, Any], allow_generation: bool = True
+) -> bool:
     """新しい戦闘のシーンSVGを生成して書き込む(素材→(任意)Gemini→プレースホルダ)。
 
-    どこかで失敗してもゲームは止めない(シーン無し=ボードのみで続行)。
+    どこかで失敗してもゲームは止めない(古いシーンは消してボードのみで続行)。
     """
     try:
         from . import assets as assets_mod
-        from . import gemini as gemini_mod
         from . import scene as scene_mod
 
-        raw_dir = root_path / assets_mod.RAW_DIR
-        if not assets_mod.has_raw_assets(root_path):
-            enemy = save.battle.enemies[0] if save.battle and save.battle.enemies else None
-            client = gemini_mod.GeminiClient()
-            if enemy is not None and client.available():
-                client.generate_enemy_assets(enemy, world, raw_dir)
+        if allow_generation:
+            try:
+                _maybe_generate_materials(root_path, save, world)
+            except Exception as e:
+                print(f"gemini: material generation failed ({type(e).__name__}); continuing")
         if assets_mod.has_raw_assets(root_path):
             try:
                 assets_mod.process_raw_assets(root_path)
@@ -83,6 +116,7 @@ def prepare_scene(root_path: Path, save: Save, world: dict[str, Any]) -> bool:
         return True
     except Exception as e:
         print(f"scene: generation failed ({type(e).__name__}); board only")
+        (root_path / SCENE_PATH).unlink(missing_ok=True)  # 前の戦闘のシーンを残さない
         return False
 
 
@@ -413,12 +447,13 @@ def process_issue(
         board_file = root_path / BOARD_PATH
         board_file.parent.mkdir(parents=True, exist_ok=True)
         board_file.write_text(svg, encoding="utf-8")
-        # 戦闘開始時のみシーンSVGを生成(素材合成 or プレースホルダ)
+        # 戦闘開始時のみシーンSVGを生成(素材合成 or プレースホルダ)。
+        # 失敗時は古いシーンを消すので、存在チェック=今の戦闘のシーンであることが保証される
         started_battle = (
             not battle_was_active and new_save.battle is not None and new_save.battle.active
         )
         if started_battle:
-            prepare_scene(root_path, new_save, world)
+            prepare_scene(root_path, new_save, world, allow_generation=not ai.mock and attempt == 0)
         has_scene = (root_path / SCENE_PATH).exists()
         cache_key = f"i{number}-a{attempt}"  # Issue番号で一意(camoキャッシュ回避)
         (root_path / README_PATH).write_text(

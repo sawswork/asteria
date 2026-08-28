@@ -57,10 +57,11 @@ class GeminiClient:
             }
         ).encode()
         req = urllib.request.Request(
-            f"{ENDPOINT}?key={self._key}",
+            ENDPOINT,
             data=payload,
             method="POST",
-            headers={"Content-Type": "application/json"},
+            # キーはURLでなくヘッダで送る(例外メッセージ等にURLが含まれても漏れないように)
+            headers={"Content-Type": "application/json", "x-goog-api-key": self._key},
         )
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             body = json.loads(resp.read().decode())
