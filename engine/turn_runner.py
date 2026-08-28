@@ -18,12 +18,13 @@ import os
 import re
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from . import battle as battle_mod
 from . import board as board_mod
-from . import generation, gitops, screen, turn_ai
+from . import chronicle, generation, gitops, screen, turn_ai
 from .ai_client import AiClient
 from .commands import (
     ABILITY_INDEX,
@@ -92,6 +93,51 @@ def _is_engine_pr(gh: GhApi, number: int) -> bool:
     except RuntimeError as e:
         print(f"pr_attack: could not verify PR #{number} ({e})")
         return False
+
+
+@dataclass
+class ChronicleEntry:
+    """年代記に残す1件。heading=見出し / body=本文 / header=章の冒頭(新しい戦いの時だけ)。"""
+
+    heading: str
+    body: str
+    header: str = ""
+    outcome: tuple[str, int] | None = None  # (result, turn) 戦闘が決着した時だけ
+
+
+def _write_chronicle(
+    root_path: Path, save: Save, issue_number: int, heading: str, body: str, header: str = ""
+) -> None:
+    """年代記の章へ1件書き込む。冪等(同じIssueの再処理では置換される)。
+
+    失敗しても冒険は止めない——記録は大切だが、進行を人質に取るほどではない。
+    """
+    try:
+        chapter = max(1, int(save.stats.get("chapters", 1)))
+        path = root_path / SAVE_DIR / chronicle.CHRONICLE_DIR / chronicle.chapter_filename(chapter)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        if header and not text.strip():
+            text = header
+        path.write_text(chronicle.append_entry(text, issue_number, heading, body), encoding="utf-8")
+    except OSError as e:
+        print(f"chronicle: write failed ({type(e).__name__}: {e})")
+
+
+def _append_chronicle_outcome(root_path: Path, save: Save, result: str, turn_no: int) -> None:
+    """章の締め(勝敗)を末尾に追記する。"""
+    try:
+        chapter = max(1, int(save.stats.get("chapters", 1)))
+        path = root_path / SAVE_DIR / chronicle.CHRONICLE_DIR / chronicle.chapter_filename(chapter)
+        if not path.exists():
+            return
+        text = path.read_text(encoding="utf-8")
+        name = save.battle.name if save.battle else ""
+        mark = chronicle.outcome_entry(result, name, turn_no)
+        if mark.strip() not in text:
+            path.write_text(text.rstrip() + "\n" + mark, encoding="utf-8")
+    except OSError as e:
+        print(f"chronicle: outcome write failed ({type(e).__name__}: {e})")
 
 
 def _term(world: dict[str, Any], key: str, default: str = "") -> str:
@@ -301,7 +347,8 @@ def _handle_turn(
     balance: dict[str, Any],
     ai: AiClient,
     repo_slug: str,
-) -> tuple[Save, str, battle_mod.TurnReport]:
+    issue_number: int = 0,
+) -> tuple[Save, str, battle_mod.TurnReport, ChronicleEntry]:
     started_new_battle = False
     intro_note = ""
     if save.battle is None or not save.battle.active:
@@ -419,15 +466,34 @@ def _handle_turn(
     if parsed.free_text and not auto_match:
         parts.append("> ℹ 自由記述からは「フルオート N」だけを解釈します(例: フルオート 5)。\n")
     parts.append(_links(repo_slug))
-    return new_save, "\n".join(parts), report
+
+    # 年代記: 新しい戦いなら章の冒頭を、そして全ターンのログをそのまま残す
+    header = ""
+    if started_new_battle and new_save.battle:
+        header = chronicle.chapter_header(
+            int(new_save.stats.get("chapters", 1)),
+            new_save.battle.name,
+            intro_note,
+            new_save.battle.enemies,
+            new_save.party,
+        )
+    heading, ch_body = chronicle.turn_entry(turn_range, issue_number, all_lines)
+    entry = ChronicleEntry(
+        heading=heading,
+        body=ch_body,
+        header=header,
+        outcome=(report.result, report.turn) if report.result else None,
+    )
+    return new_save, "\n".join(parts), report, entry
 
 
 # ---- [GENERATE] ----------------------------------------------------------
 
 
 def _handle_generate(
-    save: Save, body: str, world: dict[str, Any], balance: dict[str, Any], ai: AiClient, repo_slug: str
-) -> tuple[Save, str]:
+    save: Save, body: str, world: dict[str, Any], balance: dict[str, Any], ai: AiClient,
+    repo_slug: str, issue_number: int = 0,
+) -> tuple[Save, str, ChronicleEntry]:
     parsed = parse_generate_body(body)
     if parsed.errors:
         raise _Invalid(
@@ -483,15 +549,43 @@ def _handle_generate(
         f"残り生成権: **{new_save.spell_tokens}**(古い技は魔導書 `save/spells/` に残ります)\n\n"
         f"{_links(repo_slug)}"
     )
-    return new_save, reply
+    detail = [
+        f"{member.name} の **{parsed.slot}** が「{old_name}」から **{spell['name']}**(CT{spell['ct']})へ。",
+        "",
+        f"> {spell['desc']}",
+        "",
+        f"`effects: {json.dumps(spell['effects'], ensure_ascii=False)}`",
+    ]
+    if constraints:
+        detail.append("")
+        detail.append(f"⛓ 誓約: {'、'.join(str(table[c].get('label', c)) for c in constraints)}")
+    if not used_ai:
+        detail.append("")
+        detail.append("(この技はAIではなくルール層のテンプレートから紡がれた)")
+    heading, ch_body = chronicle.ritual_entry(
+        issue_number, "技生成の儀式", detail, quote=parsed.incantation, quote_label="詠唱文"
+    )
+    return new_save, reply, ChronicleEntry(heading=heading, body=ch_body)
 
 
 # ---- [UPDATE] ------------------------------------------------------------
 
 
+def _chronicle_update_note(save: Save, parsed: Any) -> str:
+    """アップデートの記録行。提案を見ただけの段階と、実際に進化させた段階を区別する。"""
+    if parsed.choice == CHOICE_VIEW:
+        return f"{ROLE_LABELS.get(parsed.member_role, parsed.member_role)}の{parsed.slot}について、進化の3案を見定めた。"
+    member = save.member_by_role(parsed.member_role)
+    if member is None:
+        return f"{parsed.slot}を{parsed.choice}の方向へ進化させた。"
+    obj = member.ultimate if parsed.slot == "奥義" else member.abilities[{"アビ1": 0, "アビ2": 1, "アビ3": 2}[parsed.slot]]
+    return f"{member.name}の{parsed.slot}が**{obj.name}**へ進化した({parsed.choice})。"
+
+
 def _handle_update(
-    save: Save, body: str, world: dict[str, Any], balance: dict[str, Any], ai: AiClient, repo_slug: str
-) -> tuple[Save, str]:
+    save: Save, body: str, world: dict[str, Any], balance: dict[str, Any], ai: AiClient,
+    repo_slug: str, issue_number: int = 0,
+) -> tuple[Save, str, ChronicleEntry]:
     parsed = parse_update_body(body)
     if parsed.errors:
         raise _Invalid(
@@ -533,7 +627,11 @@ def _handle_update(
             "もう一度開き、同じメンバー・スロットで「案1/案2/案3」を選択して送信してください。\n"
         )
         lines.append(_links(repo_slug))
-        return new_save, "\n".join(lines)
+        heading, ch_body = chronicle.ritual_entry(
+            issue_number, "技アップデート", [_chronicle_update_note(new_save, parsed)],
+            quote=parsed.direction, quote_label="望んだ方向",
+        )
+        return new_save, "\n".join(lines), ChronicleEntry(heading=heading, body=ch_body)
 
     # 案1〜案3の適用
     pending = new_save.pending_update
@@ -573,15 +671,20 @@ def _handle_update(
         f"{_spell_block(option['spell'])}\n\n"
         f"(使い込み回数・撃破数は引き継がれます)\n\n{_links(repo_slug)}"
     )
-    return new_save, reply
+    heading, ch_body = chronicle.ritual_entry(
+        issue_number, "技アップデート", [_chronicle_update_note(new_save, parsed)],
+        quote=parsed.direction, quote_label="望んだ方向",
+    )
+    return new_save, reply, ChronicleEntry(heading=heading, body=ch_body)
 
 
 # ---- [REWIND] ------------------------------------------------------------
 
 
 def _handle_rewind(
-    save: Save, body: str, world: dict[str, Any], balance: dict[str, Any], root: str, repo_slug: str
-) -> tuple[Save, str]:
+    save: Save, body: str, world: dict[str, Any], balance: dict[str, Any], root: str,
+    repo_slug: str, issue_number: int = 0,
+) -> tuple[Save, str, ChronicleEntry]:
     """時戻し: 現在の戦闘の記録上最古のコミットから save/ を復元する(コスト=技生成権1)。
 
     git履歴は改変しない(復元は新しいコミットとして積まれる)。ワークツリーは触らず、
@@ -676,7 +779,16 @@ def _handle_rewind(
         f"- 乱数も巻き戻っています。同じ手は同じ結末を辿ります——異なる選択を。\n\n"
         f"{_links(repo_slug)}"
     )
-    return restored, reply
+    heading, ch_body = chronicle.ritual_entry(
+        issue_number,
+        "時戻しの儀式",
+        [
+            f"「{current_name}」を**ターン{target_turn}の開始時点**へ巻き戻した。",
+            f"代償として技生成権を1つ砕いた(残り{restored.spell_tokens})。",
+            "乱数も巻き戻ったため、同じ手を選べば同じ結末に至る。",
+        ],
+    )
+    return restored, reply, ChronicleEntry(heading=heading, body=ch_body)
 
 
 # ---- PR攻撃のI/O(実PRの作成・監視・強制マージ・後始末) ------------------
@@ -921,13 +1033,21 @@ def process_issue(
 
         try:
             if title.startswith(TITLE_GENERATE):
-                new_save, reply = _handle_generate(save, body, world, balance, ai, repo_slug)
+                new_save, reply, entry = _handle_generate(
+                    save, body, world, balance, ai, repo_slug, number
+                )
             elif title.startswith(TITLE_UPDATE):
-                new_save, reply = _handle_update(save, body, world, balance, ai, repo_slug)
+                new_save, reply, entry = _handle_update(
+                    save, body, world, balance, ai, repo_slug, number
+                )
             elif title.startswith(TITLE_REWIND):
-                new_save, reply = _handle_rewind(save, body, world, balance, root, repo_slug)
+                new_save, reply, entry = _handle_rewind(
+                    save, body, world, balance, root, repo_slug, number
+                )
             else:
-                new_save, reply, _report = _handle_turn(save, body, world, balance, ai, repo_slug)
+                new_save, reply, _report, entry = _handle_turn(
+                    save, body, world, balance, ai, repo_slug, number
+                )
         except _Invalid as e:
             if gh:
                 gh.post_comment(number, e.reply_md)
@@ -935,6 +1055,9 @@ def process_issue(
             print(f"invalid input on issue #{number}; nothing consumed")
             return
 
+        _write_chronicle(root_path, new_save, number, entry.heading, entry.body, entry.header)
+        if entry.outcome:
+            _append_chronicle_outcome(root_path, new_save, entry.outcome[0], entry.outcome[1])
         pr_notes = _process_pr_attack(new_save, gh, repo_slug, root_path, balance, world)
         if pr_notes:
             reply = reply.rstrip() + "\n\n" + "\n".join(f"> {n}" for n in pr_notes) + "\n"

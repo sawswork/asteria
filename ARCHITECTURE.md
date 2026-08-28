@@ -116,3 +116,21 @@ README(ゲーム画面)に新しい戦況ボードが表示される
 - **宿敵**: 敗北時に `Save.nemesis` へ敵の全状態を保存(`battle.resolve_turn`)、再戦の再構築は `battle.nemesis_enemy`、撃破で解消
 - **時戻し**: `turn_runner._handle_rewind`。git履歴(`gitops.history_for_path` / `show_file` / `list_files`)から現在の戦闘の最古のコミットを特定し、save/ を一時ディレクトリ経由で復元して新しいコミットとして積む(履歴改変なし)
 - **PR攻撃**: 状態機械は `battle._check_pr_attack`(純粋)、実PRの作成・監視・強制マージ・後始末は `turn_runner._process_pr_attack`(I/O境界、`gh_api` のPRメソッド使用)。`battle_override.json` は `_merged_balance` が balance に深マージし、戦闘終了時に撤去
+
+## 記録の二層構造(log.md と chronicle/)
+
+冒険の記録は目的の違う2つを並行して残す。
+
+- `save/log.md`(旅の記憶)— **目次**。1行サマリだけを積み、AIプロンプトに同梱する。
+  `balance.journal_max_entries`(200)で上限があり、古いものから落ちる
+- `save/chronicle/chapter-NNN.md`(年代記)— **本文**。要約せず全文を残す。上限なし。
+  最後に1冊の書籍へ編むための素材で、AIプロンプトには載せない
+
+章立ては戦闘単位(`stats.chapters` が戦闘開始で加算される)。1つの章に
+「その戦いの全ターンのログ」と「その後の拠点での出来事(技生成の詠唱文・誓約・
+アップデート・時戻し)」が時系列で入り、末尾に勝敗が刻まれる。
+
+書き込みは **Issue番号をマーカー(`<!-- issue:N -->`)にした冪等な置換**で行う。
+push競合のリプレイでは同じIssueが何度も再解決されるため、素朴な追記だと本文が二重になる。
+置換は位置を保つので、再処理しても時系列は崩れない。純粋な文字列操作は `engine/chronicle.py`、
+ファイルI/Oは `turn_runner._write_chronicle` にある。

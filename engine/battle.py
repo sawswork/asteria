@@ -99,6 +99,7 @@ def start_battle(
             a.ready_in = 0
             a.battle_uses = 0
         m.ultimate.battle_uses = 0
+    new.stats["chapters"] = new.stats.get("chapters", 0) + 1  # 年代記の章番号(戦闘=1章)
     new.battle = Battle(
         active=True,
         name=str(battle_name or "遭遇戦"),
