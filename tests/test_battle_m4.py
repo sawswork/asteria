@@ -261,7 +261,7 @@ def test_generate_evolution_mock_and_fallback(battle_save, world, balance, tmp_p
     empty.mkdir()
     broken = AiClient(mock=True, fixtures_dir=empty)
     spec2, used2 = generate_evolution(battle_save, world, balance, broken, enemy)
-    assert not used2 and spec2 == fallback_evolution()
+    assert not used2 and spec2 == fallback_evolution(world, balance)
 
 
 # ---- 歴史の共鳴 ----------------------------------------------------------
@@ -503,3 +503,21 @@ def test_auto_commands_keep_attacking_while_one_ally_is_hurt(battle_save, balanc
     cmds = _auto_commands(battle_save, balance)
     assert cmds["healer"].action == "アビ1"  # 回復役は回復へ
     assert cmds["attacker"].action == "アビ1"  # 攻撃役は通常攻撃に落ちない
+
+
+def test_engine_has_no_world_specific_nouns():
+    """エンジンに世界の固有名詞を書かない(CLAUDE.mdの不変則)。world.jsonの値が直書きされていないこと。"""
+    import json
+
+    root = Path(__file__).resolve().parent.parent
+    world = json.loads((root / "world/world.json").read_text(encoding="utf-8"))
+    forbidden = {world["currency"], world["world_name"], *world.get("field_tags", {})}
+    forbidden |= {str(v) for v in (world.get("system_terms") or {}).values()}
+    forbidden |= {m["name"] for m in world["initial_party"]}
+    offenders = []
+    for py in (root / "engine").glob("*.py"):
+        text = py.read_text(encoding="utf-8")
+        for word in forbidden:
+            if word and word in text:
+                offenders.append(f"{py.name}: {word}")
+    assert not offenders, f"エンジンに世界固有の語が直書きされている: {offenders}"

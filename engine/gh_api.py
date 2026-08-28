@@ -119,9 +119,19 @@ class GhApi:
             return False
 
     def get_pull(self, number: int) -> dict[str, Any]:
-        """{"state": "open"|"closed", "merged": bool} を返す。"""
+        """PRの状態と素性(作者・headブランチ・headSHA)を返す。"""
         pr = self._request("GET", f"/repos/{self.repo_slug}/pulls/{number}")
-        return {"state": str(pr.get("state", "unknown")), "merged": bool(pr.get("merged", False))}
+        return {
+            "state": str(pr.get("state", "unknown")),
+            "merged": bool(pr.get("merged", False)),
+            "author": str((pr.get("user") or {}).get("login", "")),
+            "head_ref": str((pr.get("head") or {}).get("ref", "")),
+            "head_sha": str((pr.get("head") or {}).get("sha", "")),
+        }
+
+    def pull_changed_files(self, number: int) -> list[str]:
+        files = self._request("GET", f"/repos/{self.repo_slug}/pulls/{number}/files?per_page=100")
+        return [str(f["filename"]) for f in files] if isinstance(files, list) else []
 
     def merge_pull(self, number: int, title: str) -> bool:
         try:

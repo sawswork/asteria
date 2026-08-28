@@ -71,9 +71,35 @@ AI_CONFIG_PATH = "config/ai.json"
 
 GENERATED_MARKER = "assets/raw/.generated.json"  # Gemini生成素材の由来(敵ID)を記録
 OVERRIDE_PATH = "battle_override.json"  # PR攻撃で適用される戦闘スコープのバランス上書き
+# 戦闘中の手応えだけを変えるキー。恒久的な進行(leveling / spell_budget / 出現周期など)は対象外
+OVERRIDE_ALLOWED_KEYS = ("damage", "heal", "hate", "taunt", "cc", "enemy")
+# PR攻撃のPRを作る主体。ブランチ名は予測可能なので、採用・マージ前に素性を必ず確かめる
+PR_ATTACK_AUTHORS = ("github-actions[bot]", "github-actions")
 
 
-def _merged_balance(root_path: Path) -> dict[str, Any]:
+def _is_engine_pr(gh: GhApi, number: int) -> bool:
+    """そのPRがエンジン自身の禁忌詠唱PRか(作者がbotで、変更が battle_override.json だけ)。"""
+    try:
+        info = gh.get_pull(number)
+        if info.get("author") not in PR_ATTACK_AUTHORS:
+            print(f"pr_attack: PR #{number} is not engine-authored; ignoring")
+            return False
+        files = gh.pull_changed_files(number)
+        if files != [OVERRIDE_PATH]:
+            print(f"pr_attack: PR #{number} touches unexpected files; ignoring")
+            return False
+        return True
+    except RuntimeError as e:
+        print(f"pr_attack: could not verify PR #{number} ({e})")
+        return False
+
+
+def _term(world: dict[str, Any], key: str, default: str = "") -> str:
+    """世界固有の語はworld.jsonのsystem_termsから引く(エンジンに固有名詞を書かない不変則)。"""
+    return str((world.get("system_terms") or {}).get(key, default))
+
+
+def _merged_balance(root_path: Path, save: Save | None = None) -> dict[str, Any]:
     """balance.json に battle_override.json(存在時のみ)を深マージして返す。
 
     overrideはPR攻撃のマージでのみ出現し、戦闘終了時に撤去される(数値の出所は常にリポジトリ内)。
@@ -82,6 +108,13 @@ def _merged_balance(root_path: Path) -> dict[str, Any]:
     override_file = root_path / OVERRIDE_PATH
     if not override_file.exists():
         return balance
+    if save is not None:
+        # セーブ側で「詠唱が完成した」と記録されている時だけ効かせる。
+        # ファイルが置かれているだけで戦闘バランスが変わってはいけない
+        status = ((save.battle.pr_attack if save.battle else None) or {}).get("status")
+        if status != "merged":
+            print("override: present but no merged boss attack in save; ignoring")
+            return balance
     try:
         data = load_json(override_file)
     except (OSError, json.JSONDecodeError):
@@ -96,8 +129,15 @@ def _merged_balance(root_path: Path) -> dict[str, Any]:
 
     import copy
 
+    # 戦闘スコープの係数だけを許可する。恒久的な進行(leveling/spell_budget等)は
+    # 決して上書きさせない——リポジトリに置かれたファイルは信頼できる入力ではない
+    allowed = set(OVERRIDE_ALLOWED_KEYS)
+    filtered = {k: v for k, v in dict(data.get("overrides", {})).items() if k in allowed}
+    dropped = sorted(set(dict(data.get("overrides", {}))) - allowed)
+    if dropped:
+        print(f"override: ignored out-of-scope keys ({', '.join(dropped)})")
     merged = copy.deepcopy(balance)
-    deep_merge(merged, dict(data.get("overrides", {})))
+    deep_merge(merged, filtered)
     return merged
 
 
@@ -204,7 +244,6 @@ def _reply_invalid_turn(errors: list[InvalidMove], repo_slug: str) -> str:
 # ---- [TURN] --------------------------------------------------------------
 
 _FULL_AUTO_RE = re.compile(r"フルオート\s*(\d+)")  # 自由記述「フルオート N」= 合計Nターンまで自動続行
-_JOB_STARTED = time.monotonic()  # プロセス起動時刻。フルオートの実時間打ち切りはジョブ全体を縛る
 
 
 def _evolution_overrides(
@@ -229,7 +268,8 @@ def _auto_commands(save: Save, balance: dict[str, Any]) -> dict[str, Command]:
     """
     ult_max = int(balance["ult_gauge"]["max"])
     cmds: dict[str, Command] = {}
-    need_heal = any(m.alive and m.hp < m.max_hp * 0.6 for m in save.party)
+    threshold = float(balance.get("full_auto_heal_threshold", 0.6))
+    need_heal = any(m.alive and m.hp < m.max_hp * threshold for m in save.party)
     for m in save.party:
         if not m.alive:
             cmds[m.role] = Command(role=m.role, action=ACTION_WAIT, target=TARGET_AUTO)
@@ -312,8 +352,6 @@ def _handle_turn(
     auto_match = _FULL_AUTO_RE.search(parsed.free_text)
     if auto_match:
         limit = max(1, min(int(auto_match.group(1)), int(balance.get("full_auto_max_turns", 8))))
-        deadline_s = float(balance.get("full_auto_deadline_seconds", 720))
-        stopped_early = False
         boss_call = False
         was_casting = bool(new_save.battle and new_save.battle.pr_attack)
         turns_done = 1
@@ -324,10 +362,6 @@ def _handle_turn(
             new_save, report = _run_one(new_save, auto_cmds)
             all_lines.extend(report.lines)
             turns_done += 1
-            if time.monotonic() - _JOB_STARTED > deadline_s:
-                # AI応答が遅い日でもジョブ制限に達しないよう、実時間で自動送りを打ち切る
-                stopped_early = True
-                break
             if (
                 new_save.battle
                 and (new_save.battle.pr_attack or {}).get("status") == "pending"
@@ -341,8 +375,6 @@ def _handle_turn(
         auto_note = f"🤖 フルオート: {turns_done}ターンを自動解決(指定{limit}ターン上限)"
         if boss_call:
             auto_note += "。**ボスが禁忌の詠唱を始めた**ため自動送りを止めました——ここからは自分の手で"
-        if stopped_early:
-            auto_note += "。時間上限に達したため、ここで自動送りを止めました(続きは次のターン入力から)"
 
 
     recruit_note = ""
@@ -547,7 +579,9 @@ def _handle_update(
 # ---- [REWIND] ------------------------------------------------------------
 
 
-def _handle_rewind(save: Save, body: str, balance: dict[str, Any], root: str, repo_slug: str) -> tuple[Save, str]:
+def _handle_rewind(
+    save: Save, body: str, world: dict[str, Any], balance: dict[str, Any], root: str, repo_slug: str
+) -> tuple[Save, str]:
     """時戻し: 現在の戦闘の記録上最古のコミットから save/ を復元する(コスト=技生成権1)。
 
     git履歴は改変しない(復元は新しいコミットとして積まれる)。ワークツリーは触らず、
@@ -625,10 +659,12 @@ def _handle_rewind(save: Save, body: str, balance: dict[str, Any], root: str, re
             remaining = int(carried["deadline_turn"]) - save.battle.turn
             carried["deadline_turn"] = restored.battle.turn + max(0, remaining)
         carried["damage_since"] = 0
+        carried.pop("break_need", None)  # 表示用の残り必要ダメージも一緒に捨てる(次のターンで再計算される)
         restored.battle.pr_attack = carried
         restored.battle.recent_log.append("……だが、既に開かれた禁忌の門は時を遡らない。")
     restored.journal.append(
-        f"時戻しの星片を砕いた——「{current_name}」の記録最古の時点(ターン{target_turn})へ(技生成権-1)"
+        f"{_term(world, 'rewind_token', '時戻しの代償')}を砕いた"
+        f"——「{current_name}」の記録最古の時点(ターン{target_turn})へ(技生成権-1)"
     )
     if restored.battle:
         restored.battle.recent_log.append("⏪ 時が巻き戻った……星の巡りが再び動き出す。")
@@ -663,7 +699,12 @@ def _base_branch(root_path: Path) -> str:
 
 
 def _process_pr_attack(
-    save: Save, gh: GhApi | None, repo_slug: str, root_path: Path, balance: dict[str, Any]
+    save: Save,
+    gh: GhApi | None,
+    repo_slug: str,
+    root_path: Path,
+    balance: dict[str, Any],
+    world: dict[str, Any] | None = None,
 ) -> list[str]:
     """battle.pr_attack の状態に応じたI/Oを行い、返信に足す注記行を返す。
 
@@ -671,6 +712,7 @@ def _process_pr_attack(
     """
     battle = save.battle
     notes: list[str] = []
+    order = _term(world or {}, "world_order", "世界の理")
     if battle is None:
         return notes
     pr = battle.pr_attack
@@ -681,7 +723,7 @@ def _process_pr_attack(
         # 戦闘終了の後始末: 歪みを撤去し、開いたままのPRを封じる
         if override_file.exists():
             override_file.unlink()
-            notes.append("🌌 戦いの終わりとともに、星の理の歪みは元へ戻った(battle_override.json 撤去)。")
+            notes.append(f"🌌 戦いの終わりとともに、{order}の歪みは元へ戻った(battle_override.json 撤去)。")
         if pr and pr.get("status") in ("casting", "deadline") and gh and pr.get("pr_number"):
             try:
                 gh.post_comment(int(pr["pr_number"]), "戦いは終わった。この詠唱はもう意味を持たない。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_")
@@ -715,6 +757,8 @@ def _process_pr_attack(
                 notes.append("🕳 禁忌の詠唱は既に完成していた——歪みは戦場を覆ったままだ。")
             return notes
         if actual.get("state") == "closed" and status in ("casting", "deadline"):
+            if pr.get("branch"):
+                gh.delete_branch(str(pr["branch"]))  # 次のPR攻撃が同名ブランチで固着しないよう掃除
             pr["status"] = "sealed"
             notes.append("🛡 PRは閉じられていた——禁忌の詠唱は封じられた!")
             return notes
@@ -730,6 +774,10 @@ def _process_pr_attack(
             base = _base_branch(root_path)
             branch = f"boss-attack-{pr.get('enemy_id', 'boss')}-t{battle.turn}"
             existing = gh.find_open_pull_by_head(branch)
+            if existing and not _is_engine_pr(gh, existing):
+                # ブランチ名は予測可能。第三者が置いたPRを乗っ取らせない
+                existing = 0
+                branch = f"{branch}-r{len(battle.recent_log)}"
             if existing:  # リプレイで再入した: 既に開いたPRを引き継ぐ(2本目を作らない)
                 pr.update({"status": "casting", "pr_number": existing, "branch": branch})
                 notes.append(f"🕳 **{enemy_name}の禁忌詠唱!** PR #{existing} が既に開かれている。")
@@ -744,7 +792,7 @@ def _process_pr_attack(
             )
             body = (
                 f"## 🕳 禁忌詠唱 — {enemy_name}\n\n"
-                f"ボスが**星の理を歪める詠唱**を始めた。このPRは `{OVERRIDE_PATH}` "
+                f"ボスが**{order}を歪める詠唱**を始めた。このPRは `{OVERRIDE_PATH}` "
                 "(戦闘スコープのバランス上書き: 防御が意味を失い、癒しが細る)を持ち込もうとしている。\n\n"
                 "### 阻止する方法(どちらか)\n"
                 f"1. **打ち破る**: {pa.get('deadline_turns', 3)}ターン以内に詠唱中のボスへ合計 "
@@ -758,7 +806,7 @@ def _process_pr_attack(
             notes.append(
                 f"🕳 **{enemy_name}の禁忌詠唱!** PR #{number} が開かれた。"
                 f"{pa.get('deadline_turns', 3)}ターン以内に合計{pa.get('break_damage', 90)}ダメージで打ち破るか、"
-                "PRを手動クローズで封じなければ、星の理が歪む。"
+                f"PRを手動クローズで封じなければ、{order}が歪む。"
             )
         except RuntimeError as e:
             print(f"pr_attack: create failed ({e}); retrying next turn")
@@ -768,13 +816,16 @@ def _process_pr_attack(
     if status == "broken":
         if gh and pr.get("pr_number"):
             try:
-                gh.post_comment(int(pr["pr_number"]), "詠唱は打ち破られた。星の理は守られた。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_")
+                gh.post_comment(int(pr["pr_number"]), f"詠唱は打ち破られた。{order}は守られた。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_")
                 gh.close_pull(int(pr["pr_number"]))
                 if pr.get("branch"):
                     gh.delete_branch(str(pr["branch"]))
+                pr["status"] = "broken_closed"
             except RuntimeError as e:
-                print(f"pr_attack: close after break failed ({e})")
-        pr["status"] = "broken_closed"
+                # 終端状態にしない: overrideを持つPRが開いたまま残らないよう次回再試行する
+                print(f"pr_attack: close after break failed ({e}); will retry")
+        else:
+            pr["status"] = "broken_closed"
         notes.append("💥 禁忌の詠唱を打ち破った! 開かれていたPRは封じられた。")
         return notes
 
@@ -790,6 +841,11 @@ def _process_pr_attack(
                     merged = True
                 elif state.get("state") == "closed":
                     sealed = True
+                elif not _is_engine_pr(gh, int(pr["pr_number"])):
+                    # 中身がすり替わっているPRは決してマージしない(詠唱は不発として扱う)
+                    pr["status"] = "sealed"
+                    notes.append("🛡 詠唱の器は既に別物だった——マージは行われない。")
+                    return notes
                 else:
                     merged = gh.merge_pull(int(pr["pr_number"]), f"boss attack: {enemy_name}")
                     if not merged:
@@ -801,15 +857,17 @@ def _process_pr_attack(
                 print(f"pr_attack: deadline check failed ({e}); retrying next turn")
                 return notes
         if sealed:
+            if gh and pr.get("branch"):
+                gh.delete_branch(str(pr["branch"]))
             pr["status"] = "sealed"
             save.journal.append(f"{enemy_name}の禁忌のPRを封じ、詠唱を阻止した")
             notes.append("🛡 PRは閉じられていた——禁忌の詠唱は封じられた!")
         elif merged:
             override_file.write_text(_override_json_text(balance, enemy_name), encoding="utf-8")
             pr["status"] = "merged"
-            save.journal.append(f"{enemy_name}の禁忌詠唱が完成し、星の理が歪んだ")
+            save.journal.append(f"{enemy_name}の禁忌詠唱が完成し、{order}が歪んだ")
             notes.append(
-                "🕳 **詠唱完成——星の理が歪んだ。** battle_override.json が適用された"
+                f"🕳 **詠唱完成——{order}が歪んだ。** battle_override.json が適用された"
                 "(防御が意味を失い、癒しは細る)。ボスを倒して理を取り戻せ!"
             )
         return notes
@@ -850,8 +908,8 @@ def process_issue(
     last_error = ""
     for attempt in range(MAX_PUSH_REPLAYS):
         # balanceはリプレイ毎に読み直す(push競合の同期でbattle_override.jsonが現れ得るため)
-        balance = _merged_balance(root_path)
         save = load_save(root_path / SAVE_DIR)
+        balance = _merged_balance(root_path, save)
         battle_was_active = save.battle is not None and save.battle.active
 
         if number in save.processed_issues:
@@ -867,7 +925,7 @@ def process_issue(
             elif title.startswith(TITLE_UPDATE):
                 new_save, reply = _handle_update(save, body, world, balance, ai, repo_slug)
             elif title.startswith(TITLE_REWIND):
-                new_save, reply = _handle_rewind(save, body, balance, root, repo_slug)
+                new_save, reply = _handle_rewind(save, body, world, balance, root, repo_slug)
             else:
                 new_save, reply, _report = _handle_turn(save, body, world, balance, ai, repo_slug)
         except _Invalid as e:
@@ -877,7 +935,7 @@ def process_issue(
             print(f"invalid input on issue #{number}; nothing consumed")
             return
 
-        pr_notes = _process_pr_attack(new_save, gh, repo_slug, root_path, balance)
+        pr_notes = _process_pr_attack(new_save, gh, repo_slug, root_path, balance, world)
         if pr_notes:
             reply = reply.rstrip() + "\n\n" + "\n".join(f"> {n}" for n in pr_notes) + "\n"
 

@@ -400,13 +400,18 @@ def generate_enemy(
 # ---- 敵の適応進化 --------------------------------------------------------
 
 
-def fallback_evolution() -> dict[str, Any]:
-    """決定的な進化演出(AI不通時)。数値ボーナスはbattle側がbalanceから科すので演出のみ。"""
+def fallback_evolution(world: dict[str, Any], balance: dict[str, Any]) -> dict[str, Any]:
+    """決定的な進化演出(AI不通時)。語はworld.json、係数はbalance.jsonから引く。"""
+    terms = world.get("system_terms") or {}
+    power = float(balance.get("evolution", {}).get("fallback_action_power", 1.8))
     return {
-        "name": "本能の覚醒",
-        "desc": "追い詰められた本能が、力を臨界まで暴走させた",
+        "name": str(terms.get("evolution_fallback_name", "覚醒")),
+        "desc": str(terms.get("evolution_fallback_desc", "追い詰められた本能が力を暴走させた")),
         "line": "",
-        "action": {"name": "覚醒の一撃", "effects": [{"tag": "damage", "power": 1.8, "target": "enemy"}]},
+        "action": {
+            "name": str(terms.get("evolution_fallback_action", "渾身の一撃")),
+            "effects": [{"tag": "damage", "power": power, "target": "enemy"}],
+        },
     }
 
 
@@ -438,7 +443,7 @@ def generate_evolution(
         print(f"generation: evolution ai failed ({e}); falling back")
     except Exception as e:  # 検証中の想定外もフォールバックへ(ゲームを止めない)
         print(f"generation: evolution validation error ({type(e).__name__}); falling back")
-    return fallback_evolution(), False
+    return fallback_evolution(world, balance), False
 
 
 # ---- 勧誘 ----------------------------------------------------------------

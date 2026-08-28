@@ -27,28 +27,55 @@
           "id": "sora_a1",
           "name": "星走り",
           "ct": 2,
-          "effects": [{"tag": "damage", "power": 1.6, "target": "enemy"}],
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 1.6,
+              "target": "enemy"
+            }
+          ],
           "desc": "星光をまとった刺突。威力1.6倍"
         },
         {
           "id": "sora_a2",
           "name": "二連流星",
           "ct": 3,
-          "effects": [{"tag": "damage", "power": 0.9, "hits": 2, "target": "enemy"}],
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 0.9,
+              "hits": 2,
+              "target": "enemy"
+            }
+          ],
           "desc": "0.9倍の斬撃を2連撃"
         },
         {
           "id": "sora_a3",
           "name": "剣気練成",
           "ct": 4,
-          "effects": [{"tag": "buff", "stat": "atk", "mult": 1.3, "turns": 2, "target": "self"}],
+          "effects": [
+            {
+              "tag": "buff",
+              "stat": "atk",
+              "mult": 1.3,
+              "turns": 2,
+              "target": "self"
+            }
+          ],
           "desc": "2ターンの間、自身の攻撃1.3倍"
         }
       ],
       "ultimate": {
         "id": "sora_ult",
         "name": "彗星烈斬",
-        "effects": [{"tag": "damage", "power": 3.4, "target": "enemy"}],
+        "effects": [
+          {
+            "tag": "damage",
+            "power": 3.4,
+            "target": "enemy"
+          }
+        ],
         "desc": "彗星の如き一閃。威力3.4倍"
       }
     },
@@ -66,21 +93,43 @@
           "id": "ryuno_a1",
           "name": "星の勇歌",
           "ct": 3,
-          "effects": [{"tag": "buff", "stat": "atk", "mult": 1.2, "turns": 2, "target": "party"}],
+          "effects": [
+            {
+              "tag": "buff",
+              "stat": "atk",
+              "mult": 1.2,
+              "turns": 2,
+              "target": "party"
+            }
+          ],
           "desc": "2ターンの間、全員の攻撃1.2倍"
         },
         {
           "id": "ryuno_a2",
           "name": "星の護歌",
           "ct": 3,
-          "effects": [{"tag": "buff", "stat": "def", "mult": 1.3, "turns": 2, "target": "party"}],
+          "effects": [
+            {
+              "tag": "buff",
+              "stat": "def",
+              "mult": 1.3,
+              "turns": 2,
+              "target": "party"
+            }
+          ],
           "desc": "2ターンの間、全員の防御1.3倍"
         },
         {
           "id": "ryuno_a3",
           "name": "流星の矢",
           "ct": 1,
-          "effects": [{"tag": "damage", "power": 1.1, "target": "enemy"}],
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 1.1,
+              "target": "enemy"
+            }
+          ],
           "desc": "星屑を射出する。威力1.1倍"
         }
       ],
@@ -88,8 +137,20 @@
         "id": "ryuno_ult",
         "name": "星海の大合唱",
         "effects": [
-          {"tag": "buff", "stat": "atk", "mult": 1.35, "turns": 2, "target": "party"},
-          {"tag": "buff", "stat": "def", "mult": 1.25, "turns": 2, "target": "party"}
+          {
+            "tag": "buff",
+            "stat": "atk",
+            "mult": 1.35,
+            "turns": 2,
+            "target": "party"
+          },
+          {
+            "tag": "buff",
+            "stat": "def",
+            "mult": 1.25,
+            "turns": 2,
+            "target": "party"
+          }
         ],
         "desc": "2ターンの間、全員の攻撃1.35倍・防御1.25倍"
       }
@@ -108,7 +169,12 @@
           "id": "gante_a1",
           "name": "挑発の雄叫び",
           "ct": 3,
-          "effects": [{"tag": "taunt", "target": "self"}],
+          "effects": [
+            {
+              "tag": "taunt",
+              "target": "self"
+            }
+          ],
           "desc": "敵の狙いを自分に強制固定(2ターン)"
         },
         {
@@ -116,8 +182,16 @@
           "name": "星盾強打",
           "ct": 2,
           "effects": [
-            {"tag": "damage", "power": 1.2, "target": "enemy"},
-            {"tag": "hate", "amount": 20, "target": "self"}
+            {
+              "tag": "damage",
+              "power": 1.2,
+              "target": "enemy"
+            },
+            {
+              "tag": "hate",
+              "amount": 20,
+              "target": "self"
+            }
           ],
           "desc": "盾の一撃(1.2倍)+ヘイト増加"
         },
@@ -126,8 +200,18 @@
           "name": "鉄星の構え",
           "ct": 3,
           "effects": [
-            {"tag": "buff", "stat": "def", "mult": 1.5, "turns": 2, "target": "self"},
-            {"tag": "hate", "amount": 10, "target": "self"}
+            {
+              "tag": "buff",
+              "stat": "def",
+              "mult": 1.5,
+              "turns": 2,
+              "target": "self"
+            },
+            {
+              "tag": "hate",
+              "amount": 10,
+              "target": "self"
+            }
           ],
           "desc": "2ターンの間、自身の防御1.5倍+ヘイト増加"
         }
@@ -136,9 +220,22 @@
         "id": "gante_ult",
         "name": "不動の星砦",
         "effects": [
-          {"tag": "buff", "stat": "def", "mult": 1.6, "turns": 2, "target": "self"},
-          {"tag": "taunt", "target": "self"},
-          {"tag": "hate", "amount": 40, "target": "self"}
+          {
+            "tag": "buff",
+            "stat": "def",
+            "mult": 1.6,
+            "turns": 2,
+            "target": "self"
+          },
+          {
+            "tag": "taunt",
+            "target": "self"
+          },
+          {
+            "tag": "hate",
+            "amount": 40,
+            "target": "self"
+          }
         ],
         "desc": "防御1.6倍+挑発ロック+大ヘイト"
       }
@@ -157,28 +254,52 @@
           "id": "mio_a1",
           "name": "星灯の癒し",
           "ct": 2,
-          "effects": [{"tag": "heal", "power": 2.2, "target": "ally"}],
+          "effects": [
+            {
+              "tag": "heal",
+              "power": 2.2,
+              "target": "ally"
+            }
+          ],
           "desc": "味方1人を回復(2.2倍)"
         },
         {
           "id": "mio_a2",
           "name": "星環の祈り",
           "ct": 4,
-          "effects": [{"tag": "heal", "power": 1.2, "target": "party"}],
+          "effects": [
+            {
+              "tag": "heal",
+              "power": 1.2,
+              "target": "party"
+            }
+          ],
           "desc": "全員を回復(1.2倍)"
         },
         {
           "id": "mio_a3",
           "name": "光芒の矢",
           "ct": 1,
-          "effects": [{"tag": "damage", "power": 1.1, "target": "enemy"}],
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 1.1,
+              "target": "enemy"
+            }
+          ],
           "desc": "祈りの光弾。威力1.1倍"
         }
       ],
       "ultimate": {
         "id": "mio_ult",
         "name": "母星の抱擁",
-        "effects": [{"tag": "heal", "power": 2.5, "target": "party"}],
+        "effects": [
+          {
+            "tag": "heal",
+            "power": 2.5,
+            "target": "party"
+          }
+        ],
         "desc": "全員を大回復(2.5倍)"
       }
     }
@@ -193,14 +314,34 @@
       "def": 9,
       "agi": 11,
       "actions": {
-        "normal": {"name": "噛みつき", "effects": [{"tag": "damage", "power": 1.0, "target": "enemy"}]},
-        "strong": {"name": "星蝕の牙", "effects": [{"tag": "damage", "power": 1.5, "target": "enemy"}]}
+        "normal": {
+          "name": "噛みつき",
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 1.0,
+              "target": "enemy"
+            }
+          ]
+        },
+        "strong": {
+          "name": "星蝕の牙",
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 1.5,
+              "target": "enemy"
+            }
+          ]
+        }
       }
     }
   },
   "first_battle": {
     "battle_name": "星蝕の仔狼との遭遇",
-    "enemy_ids": ["m1_wolf"],
+    "enemy_ids": [
+      "m1_wolf"
+    ],
     "intro": "夜空の欠片が墜ちた森で、星を喰らう仔狼が唸りを上げた。"
   },
   "fallback_enemies": [
@@ -210,7 +351,13 @@
       "personality": "臆病",
       "normal_name": "冷気の爪",
       "special_name": "星喰の咆哮",
-      "special_effects": [{"tag": "damage", "power": 1.5, "target": "enemy"}],
+      "special_effects": [
+        {
+          "tag": "damage",
+          "power": 1.5,
+          "target": "enemy"
+        }
+      ],
       "intro": "崩れた星片の陰から、青白い残光がにじみ出た。"
     },
     {
@@ -220,8 +367,18 @@
       "normal_name": "突進",
       "special_name": "岩甲の粉砕",
       "special_effects": [
-        {"tag": "damage", "power": 1.2, "target": "enemy"},
-        {"tag": "debuff", "stat": "def", "mult": 0.85, "turns": 2, "target": "enemy"}
+        {
+          "tag": "damage",
+          "power": 1.2,
+          "target": "enemy"
+        },
+        {
+          "tag": "debuff",
+          "stat": "def",
+          "mult": 0.85,
+          "turns": 2,
+          "target": "enemy"
+        }
       ],
       "intro": "地響きとともに、黒ずんだ甲殻の獣が姿を現した。"
     },
@@ -231,11 +388,23 @@
       "personality": "狡猾",
       "normal_name": "風切り爪",
       "special_name": "哭声",
-      "special_effects": [{"tag": "dot", "power": 0.6, "turns": 2, "target": "enemy"}],
+      "special_effects": [
+        {
+          "tag": "dot",
+          "power": 0.6,
+          "turns": 2,
+          "target": "enemy"
+        }
+      ],
       "intro": "梢の闇で、二つの光る眼がこちらを見下ろしていた。"
     }
   ],
-  "recruit_pool_roles": ["attacker", "support", "tank", "healer"],
+  "recruit_pool_roles": [
+    "attacker",
+    "support",
+    "tank",
+    "healer"
+  ],
   "field_tags": {
     "濡れ星": "星の雫を纏わせる。雷紋との共鳴で感電が弾ける",
     "雷紋": "帯電の紋章。濡れ星との共鳴で感電が弾ける",
@@ -277,5 +446,19 @@
       "log": "火種が星脂を呑み、炎が荒れ狂った!【大炎上】"
     }
   ],
-  "distortion_weaknesses": ["濡れ星", "雷紋", "油星", "焔種", "星屑纏い"]
+  "distortion_weaknesses": [
+    "濡れ星",
+    "雷紋",
+    "油星",
+    "焔種",
+    "星屑纏い"
+  ],
+  "system_terms": {
+    "world_order": "星の理",
+    "rewind_token": "時戻しの星片",
+    "residue_default": "星屑の残滓",
+    "evolution_fallback_name": "本能の覚醒",
+    "evolution_fallback_action": "覚醒の一撃",
+    "evolution_fallback_desc": "追い詰められた本能が、力を臨界まで暴走させた"
+  }
 }

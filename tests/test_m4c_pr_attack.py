@@ -26,7 +26,11 @@ class FakePrGhApi(FakeGhApi):
         self.merged: list[int] = []
         self.closed_pulls: list[int] = []
         self.deleted_branches: list[str] = []
-        self.pull_state: dict = {"state": "open", "merged": False}
+        self.pull_state: dict = {
+            "state": "open", "merged": False,
+            "author": "github-actions[bot]", "head_ref": "b", "head_sha": "sha1",
+        }
+        self.changed_files = [OVERRIDE_PATH]
         self.merge_ok = True
         self.existing_pull = 0
 
@@ -51,6 +55,9 @@ class FakePrGhApi(FakeGhApi):
 
     def get_pull(self, number: int) -> dict:
         return dict(self.pull_state)
+
+    def pull_changed_files(self, number: int) -> list:
+        return list(self.changed_files)
 
     def merge_pull(self, number: int, title: str) -> bool:
         if self.merge_ok:
@@ -162,17 +169,18 @@ def test_pending_without_gh_simulates(tmp_path, battle_save, balance):
     assert notes
 
 
-def test_deadline_open_pr_force_merges_and_applies(tmp_path, battle_save, balance):
+def test_deadline_open_pr_force_merges_and_applies(tmp_path, battle_save, balance, world):
     enemy = _make_boss(battle_save)
     battle_save.battle.pr_attack = {
         "status": "deadline", "enemy_id": enemy.id, "pr_number": 77, "branch": "boss-attack-x",
     }
     gh = FakePrGhApi()
-    notes = _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
+    notes = _process_pr_attack(battle_save, gh, REPO, tmp_path, balance, world)
     assert gh.merged == [77]
     assert battle_save.battle.pr_attack["status"] == "merged"
     assert (tmp_path / OVERRIDE_PATH).exists()
-    assert any("星の理が歪んだ" in n for n in notes)
+    order = world["system_terms"]["world_order"]  # 世界固有の語はworld.jsonから来る
+    assert any(f"{order}が歪んだ" in n for n in notes)
     assert any("歪んだ" in line for line in battle_save.journal)
 
 
@@ -427,3 +435,77 @@ def test_full_auto_continues_after_casting_started(tmp_path):
     )
     after = load_save(root / "save").battle.turn
     assert after - before == 5  # 5ターン走り切る(1ターンで止まらない)
+
+
+def test_broken_close_failure_keeps_state_for_retry(tmp_path, battle_save, balance):
+    """ブレイク後のクローズがAPI失敗したら終端にせず再試行できるようにする。"""
+    enemy = _make_boss(battle_save)
+    battle_save.battle.pr_attack = {
+        "status": "broken", "enemy_id": enemy.id, "pr_number": 77, "branch": "b",
+    }
+    gh = FakePrGhApi()
+    gh.raise_on_comment = True
+    _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
+    assert battle_save.battle.pr_attack["status"] == "broken"
+
+
+def test_override_allow_list_blocks_permanent_changes(tmp_path):
+    """battle_override.json は戦闘スコープの係数だけを上書きでき、恒久的な進行は書き換えられない。"""
+    import json as _json
+
+    root = make_root(tmp_path)
+    (root / OVERRIDE_PATH).write_text(
+        _json.dumps({"overrides": {
+            "damage": {"def_coeff": 0.1},
+            "leveling": {"xp_curve_base": 1},
+            "spell_budget": {"base": 9999},
+        }}),
+        encoding="utf-8",
+    )
+    base = load_json(root / "world/balance.json")
+    merged = _merged_balance(root)
+    assert merged["damage"]["def_coeff"] == 0.1  # 許可された戦闘係数は効く
+    assert merged["leveling"] == base["leveling"]  # 恒久的な進行は無視される
+    assert merged["spell_budget"] == base["spell_budget"]
+
+
+def test_hijacked_pr_is_not_adopted(tmp_path, battle_save, balance, world):
+    """予測可能なブランチ名に第三者が置いたPRは引き継がず、別ブランチで作り直す。"""
+    enemy = _make_boss(battle_save)
+    battle_save.battle.pr_attack = {"status": "pending", "enemy_id": enemy.id}
+    gh = FakePrGhApi()
+    gh.existing_pull = 55
+    gh.pull_state = {"state": "open", "merged": False, "author": "someone-else"}
+    _process_pr_attack(battle_save, gh, REPO, tmp_path, balance, world)
+    assert battle_save.battle.pr_attack["pr_number"] == 77  # 自分で作り直した番号
+    assert gh.pulls  # 新しいPRを開いている
+
+
+def test_tampered_pr_is_never_merged(tmp_path, battle_save, balance, world):
+    """中身がすり替わったPRは強制マージせず、詠唱を不発にする。"""
+    enemy = _make_boss(battle_save)
+    battle_save.battle.pr_attack = {
+        "status": "deadline", "enemy_id": enemy.id, "pr_number": 77, "branch": "b",
+    }
+    gh = FakePrGhApi()
+    gh.changed_files = [OVERRIDE_PATH, "engine/battle.py"]  # 余計なファイルを含む
+    notes = _process_pr_attack(battle_save, gh, REPO, tmp_path, balance, world)
+    assert gh.merged == []
+    assert battle_save.battle.pr_attack["status"] == "sealed"
+    assert not (tmp_path / OVERRIDE_PATH).exists()
+    assert any("別物" in n for n in notes)
+
+
+def test_override_ignored_without_merged_state(tmp_path):
+    """battle_override.json が置かれているだけでは効かない(セーブ側のmerged記録が必要)。"""
+    import json as _json
+
+    from engine.save_io import load_save, write_save
+
+    root = make_root(tmp_path)
+    (root / OVERRIDE_PATH).write_text(
+        _json.dumps({"overrides": {"damage": {"def_coeff": 0.1}}}), encoding="utf-8"
+    )
+    save = load_save(root / "save")
+    base = load_json(root / "world/balance.json")
+    assert _merged_balance(root, save)["damage"]["def_coeff"] == base["damage"]["def_coeff"]
