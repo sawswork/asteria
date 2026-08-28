@@ -13,5 +13,6 @@
   "desc": "敵の狙いを自分に強制固定(2ターン)",
   "usage_count": 3,
   "kills": 0,
+  "constraints": [],
   "ct": 3
 }

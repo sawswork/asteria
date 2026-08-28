@@ -21,7 +21,8 @@
     }
   ],
   "desc": "2ターンの間、全員の攻撃1.35倍・防御1.25倍",
-  "usage_count": 1,
+  "usage_count": 2,
   "kills": 0,
+  "constraints": [],
   "ct": 0
 }

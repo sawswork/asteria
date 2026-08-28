@@ -21,5 +21,6 @@
   "desc": "2ターンの間、自身の防御1.5倍+ヘイト増加",
   "usage_count": 0,
   "kills": 0,
+  "constraints": [],
   "ct": 3
 }

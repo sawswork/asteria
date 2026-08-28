@@ -14,6 +14,7 @@
   "shield": 0,
   "stunned_turns": 0,
   "dots": [],
+  "field_tags": [],
   "slots": {
     "ability1": "recruit1_a1",
     "ability2": "recruit1_a2",
@@ -22,13 +23,19 @@
   },
   "slot_state": {
     "ability1": {
-      "ready_in": 0
+      "ready_in": 0,
+      "battle_uses": 0
     },
     "ability2": {
-      "ready_in": 0
+      "ready_in": 0,
+      "battle_uses": 0
     },
     "ability3": {
-      "ready_in": 0
+      "ready_in": 0,
+      "battle_uses": 0
+    },
+    "ultimate": {
+      "battle_uses": 0
     }
   }
 }
