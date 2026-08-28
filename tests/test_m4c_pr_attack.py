@@ -28,9 +28,16 @@ class FakePrGhApi(FakeGhApi):
         self.deleted_branches: list[str] = []
         self.pull_state: dict = {"state": "open", "merged": False}
         self.merge_ok = True
+        self.existing_pull = 0
 
     def get_branch_sha(self, branch: str) -> str:
         return "abc123"
+
+    def find_open_pull_by_head(self, branch: str) -> int:
+        return self.existing_pull
+
+    def branch_exists(self, name: str) -> bool:
+        return name in [b for b, _ in self.branches]
 
     def create_branch(self, name: str, sha: str) -> None:
         self.branches.append((name, sha))
@@ -248,7 +255,7 @@ def test_rewind_carries_pr_attack_forward(tmp_path):
     save.spell_tokens = 1
     write_save(save, root / "save")
     _setup_git(tmp_path, root)
-    gh = FakeGhApi()
+    gh = FakePrGhApi()  # 時戻し中もPR状態の確認が走るため、PR APIを持つ代替を使う
     process_issue(make_issue(1, body_from(all_normal())), REPO, str(root), do_git=True, gh=gh)
     process_issue(make_issue(2, body_from(all_normal())), REPO, str(root), do_git=True, gh=gh)
 
@@ -268,3 +275,72 @@ def test_rewind_carries_pr_attack_forward(tmp_path):
     assert pr is not None and pr["status"] == "casting" and pr["pr_number"] == 77
     assert pr["damage_since"] == 0  # 与ダメージは無かったことになる
     assert pr["deadline_turn"] - after.battle.turn == 2  # 猶予(5-3=2ターン)は据え置き
+
+
+def test_replay_reuses_existing_pr(tmp_path, battle_save, balance):
+    """リプレイで再入しても2本目のPRを開かず、既存PRを引き継ぐ。"""
+    enemy = _make_boss(battle_save)
+    battle_save.battle.pr_attack = {"status": "pending", "enemy_id": enemy.id}
+    gh = FakePrGhApi()
+    gh.existing_pull = 55
+    notes = _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
+    assert gh.pulls == []  # 新しいPRは作られない
+    assert battle_save.battle.pr_attack["pr_number"] == 55
+    assert any("既に開かれている" in n for n in notes)
+
+
+def test_merged_pr_wins_over_replayed_break(tmp_path, battle_save, balance):
+    """リプレイで盤面が『ブレイク成立』と再計算しても、実PRがマージ済みならそちらが真実。"""
+    enemy = _make_boss(battle_save)
+    battle_save.battle.pr_attack = {
+        "status": "broken", "enemy_id": enemy.id, "pr_number": 77, "branch": "b",
+    }
+    gh = FakePrGhApi()
+    gh.pull_state = {"state": "closed", "merged": True}
+    notes = _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
+    assert battle_save.battle.pr_attack["status"] == "merged"
+    assert (tmp_path / OVERRIDE_PATH).exists()
+    assert gh.closed_pulls == []  # マージ済みPRを閉じにいかない
+    assert any("既に完成していた" in n for n in notes)
+
+
+def test_cleanup_failure_keeps_state_for_retry(tmp_path, battle_save, balance):
+    """戦闘終了の後始末がAPI失敗したら終端状態にせず、次回再試行できるようにする。"""
+    enemy = _make_boss(battle_save)
+    battle_save.battle.active = False
+    battle_save.battle.result = "victory"
+    battle_save.battle.pr_attack = {
+        "status": "casting", "enemy_id": enemy.id, "pr_number": 77, "branch": "b",
+    }
+    gh = FakePrGhApi()
+    gh.raise_on_comment = True  # post_comment が失敗する
+    _process_pr_attack(battle_save, gh, REPO, tmp_path, balance)
+    assert battle_save.battle.pr_attack["status"] == "casting"  # 終端にしない
+
+
+def test_full_auto_stops_when_boss_starts_casting(tmp_path):
+    """ボスの詠唱が始まったらフルオートは止まる(自動送りでPR攻撃を素通りさせない)。"""
+    from engine.save_io import load_save, write_save
+    from engine.turn_runner import process_issue
+    from tests.test_turn_runner import all_normal, body_from, make_issue
+
+    root = make_root(tmp_path)
+    save = load_save(root / "save")
+    save.stats["victories"] = 1
+    write_save(save, root / "save")
+    gh = FakePrGhApi()
+    # 1ターン目で戦闘を開始し、ボスに差し替えてから自動送りさせる
+    process_issue(make_issue(1, body_from(all_normal())), REPO, str(root), do_git=False, gh=gh)
+    save = load_save(root / "save")
+    e = save.battle.enemies[0]
+    e.tier, e.max_hp, e.hp = "boss", 400, 200  # 次のターン終了時にHP60%割れで詠唱開始
+    write_save(save, root / "save")
+    process_issue(
+        make_issue(2, body_from(all_normal(), free_text="フルオート 8")),
+        REPO, str(root), do_git=False, gh=gh,
+    )
+    after = load_save(root / "save")
+    assert after.battle.pr_attack is not None
+    reply = gh.comments[-1][1]
+    assert "禁忌の詠唱を始めた" in reply
+    assert "8ターンを自動解決" not in reply  # 8ターン走り切っていない
