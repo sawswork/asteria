@@ -86,3 +86,28 @@ def test_fallback_update_options_fit_budget(fresh_save, balance):
     for opt in options:
         spell = opt["spell"]
         assert spell_cost(spell["ct"], spell["effects"], balance, False) <= budget + 1e-9
+
+def test_cli_failure_includes_stderr_summary(monkeypatch, tmp_path):
+    """異常終了の理由を追えるよう、stderrの要約をエラーに添える。"""
+    import subprocess
+
+    from engine.ai_client import AiClient, AiError
+
+    monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "x")
+
+    def fake_run(*a, **k):
+        return subprocess.CompletedProcess(a[0], 1, stdout="", stderr="Usage limit reached\nretry later")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    client = AiClient(config_path=tmp_path / "missing.json")
+    client.config["max_retries"] = 0
+    try:
+        client.call("kind", "prompt")
+    except AiError:
+        pass
+    try:
+        client._invoke_cli("prompt", "generation")
+        raise AssertionError("should have raised")
+    except AiError as e:
+        assert "code=1" in str(e)
+        assert "Usage limit reached" in str(e)
