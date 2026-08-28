@@ -108,6 +108,28 @@ def start_battle(
     return new
 
 
+def nemesis_enemy(save: Save) -> Optional[tuple[Enemy, str, str]]:
+    """宿敵が居ればフルHPで再構築して返す。(敵, 戦闘名, 登場ログ)。無ければ None。
+
+    進化・歪み(弱点)・進化技は保存されたまま引き継ぐ(戦いの記憶)。戦闘中の一時状態は初期化。
+    """
+    data = (save.nemesis or {}).get("enemy")
+    if not data:
+        return None
+    e = Enemy.from_dict(dict(data))
+    e.hp = e.max_hp
+    e.buffs = []
+    e.shield = 0
+    e.stunned_turns = 0
+    e.dots = []
+    e.cc_resist = {}
+    e.field_tags = []
+    e.last_special_turn = 0
+    e.evolution_pending = None
+    intro = f"倒れたはずの{e.name}が、深い唸りとともに再び立ち塞がる——宿敵との再戦。"
+    return e, f"宿敵・{e.name}との再戦", intro
+
+
 @dataclass
 class _Ctx:
     save: Save
@@ -865,10 +887,22 @@ def resolve_turn(
         if battle.result == "victory":
             new.stats["victories"] = new.stats.get("victories", 0) + 1
             new.journal.append(f"「{battle.name}」に勝利(ターン{turn_no})")
+            nem_id = str(((new.nemesis or {}).get("enemy") or {}).get("id", ""))
+            if nem_id and any(e.id == nem_id for e in battle.enemies):
+                nem_name = str(new.nemesis["enemy"].get("name", "宿敵"))  # type: ignore[index]
+                new.nemesis = None
+                new.journal.append(f"宿敵「{nem_name}」を討ち果たした——因縁に決着がついた")
+                _log(ctx, f"🗡 宿敵「{nem_name}」との因縁に、ついに決着がついた。")
             _apply_victory_progression(ctx)
         else:
             new.stats["defeats"] = new.stats.get("defeats", 0) + 1
             new.journal.append(f"「{battle.name}」で敗北(ターン{turn_no})")
+            foe = next((e for e in battle.enemies if e.alive), None)
+            if foe is not None:
+                # 宿敵化: 進化・歪み・戦いの記憶ごと保存し、次の戦いで必ず再登場する
+                new.nemesis = {"enemy": foe.to_dict(), "battle_name": battle.name}
+                new.journal.append(f"{foe.name}は一党を退けた——奴は宿敵として旅路に立ち塞がる")
+                _log(ctx, f"……{foe.name}は勝利の咆哮を上げた。奴はもう、ただの敵ではない。")
         limit = int(balance.get("journal_max_entries", 200))
         del new.journal[:-limit]
 

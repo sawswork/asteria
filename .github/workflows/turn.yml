@@ -20,7 +20,8 @@ jobs:
       (github.event.issue.user.login == github.repository_owner &&
        (startsWith(github.event.issue.title, '[TURN]') ||
         startsWith(github.event.issue.title, '[GENERATE]') ||
-        startsWith(github.event.issue.title, '[UPDATE]')))
+        startsWith(github.event.issue.title, '[UPDATE]') ||
+        startsWith(github.event.issue.title, '[REWIND]')))
     runs-on: ubuntu-latest
     timeout-minutes: 20  # AI呼び出しの最悪ケース(3呼び出し×3試行×60秒)+セットアップに余裕を持たせる
     steps:

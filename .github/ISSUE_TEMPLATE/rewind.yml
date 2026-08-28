@@ -1,0 +1,19 @@
+name: ⏪ 時戻しの儀式
+description: 技生成権を1つ砕き、今の戦いの始まり(記録に残る最古の時点)へ時を巻き戻す
+title: "[REWIND] 時戻しの儀式"
+labels: ["turn"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        戦況が絶望的なとき、技生成権を1つ代償に、今の戦いの記録上いちばん古い時点へセーブを巻き戻せます。
+        乱数も巻き戻るため、同じ手は同じ結末を辿ります。異なる選択だけが運命を変えます。
+        戦闘中のみ使用可能。生成権が無いと発動できません。
+  - type: dropdown
+    id: confirm
+    attributes:
+      label: 確認
+      options: ["時を戻す(技生成権を1消費)"]
+      default: 0
+    validations:
+      required: true

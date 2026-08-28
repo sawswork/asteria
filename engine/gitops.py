@@ -42,6 +42,28 @@ def commit(paths: list[str], message: str, cwd: str = ".") -> str:
     return _git("rev-parse", "HEAD", cwd=cwd)
 
 
+def history_for_path(path: str, cwd: str = ".") -> list[str]:
+    """path に触れたコミットSHAを新しい順に返す(時戻しの探索用)。"""
+    out = _git("rev-list", "HEAD", "--", path, cwd=cwd)
+    return [line for line in out.splitlines() if line.strip()]
+
+
+def show_file(sha: str, path: str, cwd: str = ".") -> str:
+    """コミット sha 時点の path の内容を返す。"""
+    return _git("show", f"{sha}:{path}", cwd=cwd)
+
+
+def restore_paths(sha: str, paths: list[str], cwd: str = ".") -> None:
+    """ワークツリーの paths をコミット sha の内容に置き換える(履歴は改変しない)。"""
+    _git("checkout", sha, "--", *paths, cwd=cwd)
+
+
+def list_files(sha: str, path: str, cwd: str = ".") -> list[str]:
+    """コミット sha 時点で path 配下にあるファイルの相対パス一覧。"""
+    out = _git("ls-tree", "-r", "--name-only", sha, "--", path, cwd=cwd)
+    return [line for line in out.splitlines() if line.strip()]
+
+
 def push_once(cwd: str = ".") -> tuple[bool, str]:
     """1回だけpushを試みる。失敗時は (False, stderr要約) を返す。"""
     result = subprocess.run(["git", "push"], cwd=cwd, capture_output=True, text=True)

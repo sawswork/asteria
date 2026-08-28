@@ -398,6 +398,7 @@ class Save:
     spell_tokens: int = 0  # 技生成権(レベルアップで+1)
     roster_extra: list[Member] = field(default_factory=list)  # 勧誘で加入した控えメンバー
     pending_update: Optional[dict[str, Any]] = None  # 技アップデートの提示済み3案(選択待ち)
+    nemesis: Optional[dict[str, Any]] = None  # 宿敵 {"enemy": Enemy.to_dict(), ...}。敗北で記録・撃破で解消
 
     def member_by_role(self, role: str) -> Optional[Member]:
         for m in self.party:
@@ -426,6 +427,7 @@ class Save:
             "spell_tokens": self.spell_tokens,
             "roster_extra": [m.to_dict() for m in self.roster_extra],
             "pending_update": self.pending_update,
+            "nemesis": self.nemesis,
         }
 
     @staticmethod
@@ -445,4 +447,5 @@ class Save:
             spell_tokens=int(d.get("spell_tokens", 0)),
             roster_extra=[Member.from_dict(m) for m in d.get("roster_extra", [])],
             pending_update=d.get("pending_update"),
+            nemesis=d.get("nemesis"),
         )

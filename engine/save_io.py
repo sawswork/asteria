@@ -65,6 +65,8 @@ def _member_from_v2(mdict: dict[str, Any], spells: dict[str, dict[str, Any]]) ->
                 ready_in=int(slot_state.get(key, {}).get("ready_in", 0)),
                 usage_count=int(spell.get("usage_count", 0)),
                 kills=int(spell.get("kills", 0)),
+                constraints=[str(c) for c in spell.get("constraints", [])],
+                battle_uses=int(slot_state.get(key, {}).get("battle_uses", 0)),
             )
         )
     ult_spell = spells[slots["ultimate"]]
@@ -75,6 +77,8 @@ def _member_from_v2(mdict: dict[str, Any], spells: dict[str, dict[str, Any]]) ->
         desc=str(ult_spell.get("desc", "")),
         usage_count=int(ult_spell.get("usage_count", 0)),
         kills=int(ult_spell.get("kills", 0)),
+        constraints=[str(c) for c in ult_spell.get("constraints", [])],
+        battle_uses=int(slot_state.get("ultimate", {}).get("battle_uses", 0)),
     )
     base = dict(mdict)
     base.pop("slots", None)
@@ -129,6 +133,7 @@ def load_save(save_dir: str | Path) -> Save:
         spell_tokens=int(player.get("spell_tokens", 0)),
         roster_extra=load_members(list(player.get("roster_extra", []))),
         pending_update=state.get("pending_update"),
+        nemesis=state.get("nemesis"),
     )
 
 
@@ -146,6 +151,7 @@ def _spell_dict(kind: str, owner_id: str, obj: Ability | Ultimate) -> dict[str, 
         "desc": obj.desc,
         "usage_count": obj.usage_count,
         "kills": obj.kills,
+        "constraints": obj.constraints,
     }
     d["ct"] = obj.ct if isinstance(obj, Ability) else 0
     return d
@@ -162,8 +168,10 @@ def _member_v2_dict(m: Member) -> dict[str, Any]:
         "ultimate": m.ultimate.id,
     }
     d["slot_state"] = {
-        key: {"ready_in": m.abilities[i].ready_in} for i, key in enumerate(_SLOT_KEYS)
+        key: {"ready_in": m.abilities[i].ready_in, "battle_uses": m.abilities[i].battle_uses}
+        for i, key in enumerate(_SLOT_KEYS)
     }
+    d["slot_state"]["ultimate"] = {"battle_uses": m.ultimate.battle_uses}
     return d
 
 
@@ -178,6 +186,7 @@ def write_save(save: Save, save_dir: str | Path) -> None:
             "processed_issues": save.processed_issues,
             "stats": save.stats,
             "pending_update": save.pending_update,
+            "nemesis": save.nemesis,
         },
         root / "state.json",
     )

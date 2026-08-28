@@ -30,6 +30,9 @@ COMMAND_LABELS = frozenset(
 MEMBER_LABEL = "対象メンバー"
 SLOT_LABEL = "スロット"
 CHOICE_LABEL = "選択"
+CONFIRM_LABEL = "確認"
+
+REWIND_CONFIRM = "時を戻す"
 
 SLOT_VALUES = ("アビ1", "アビ2", "アビ3", "奥義")
 CHOICE_VIEW = "提案を見る"
@@ -134,6 +137,26 @@ def parse_generate_body(body: str) -> ParsedGenerate:
     parsed.slot = slot
     if not parsed.incantation.strip():
         parsed.errors.append("「詠唱文」が未入力です(どんな技にしたいか自由に書いてください)")
+    return parsed
+
+
+# ---- 時戻しフォーム ------------------------------------------------------
+
+
+@dataclass
+class ParsedRewind:
+    confirmed: bool = False
+    errors: list[str] = field(default_factory=list)
+
+
+def parse_rewind_body(body: str) -> ParsedRewind:
+    parsed = ParsedRewind()
+    sections, _free = _sections(body, frozenset({CONFIRM_LABEL}), "")
+    value = sections.get(CONFIRM_LABEL, "").strip()
+    if value.startswith(REWIND_CONFIRM):
+        parsed.confirmed = True
+    else:
+        parsed.errors.append(f"「{CONFIRM_LABEL}」で「{REWIND_CONFIRM}」を選択してください")
     return parsed
 
 

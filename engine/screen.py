@@ -51,6 +51,7 @@ def render_readme(
 
     generate_url = f"https://github.com/{repo_slug}/issues/new?template=generate.yml"
     update_url = f"https://github.com/{repo_slug}/issues/new?template=update.yml"
+    rewind_url = f"https://github.com/{repo_slug}/issues/new?template=rewind.yml"
 
     if save.battle and save.battle.active:
         status = f"⚔️ 戦闘中: **{save.battle.name}**(ターン{save.battle.turn})"
@@ -60,6 +61,9 @@ def render_readme(
         status = f"💀 「{save.battle.name}」で敗北……次のターン送信で再挑戦できる。"
     else:
         status = "🏕 拠点で休息中。ターンを送信すると冒険が始まる。"
+    nemesis_name = str(((save.nemesis or {}).get("enemy") or {}).get("name", ""))
+    if nemesis_name and not (save.battle and save.battle.active):
+        status += f"\n\n👁 宿敵**{nemesis_name}**が待ち構えている——次の戦いで必ず現れる。"
 
     victories = save.stats.get("victories", 0)
     journal_tail = "\n".join(f"- {line}" for line in save.journal[-5:])
@@ -88,6 +92,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 | ⚡ **[全員通常攻撃(1タップ)]({all_normal_url})** | 全員「通常攻撃/自動」が入力済みのフォームが開く |
 | ✨ **[技生成の儀式]({generate_url})** | 生成権(残り**{spell_tokens}**)を使い、詠唱文から新しい技を紡ぐ |
 | 🔮 **[技アップデート]({update_url})** | 使い込んだ技の進化3案から選ぶ |
+| ⏪ **[時戻しの儀式]({rewind_url})** | 生成権1を砕き、今の戦いの始まりへ時を巻き戻す(戦闘中のみ) |
 
 送信後、数十秒でこのページのボードが更新される(結果はIssueにも返信される)。
 現在: **Lv{level}**(XP {xp})/ 技生成権 **{spell_tokens}** / 控えメンバー {roster_count}人

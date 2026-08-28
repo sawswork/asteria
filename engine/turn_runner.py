@@ -42,6 +42,7 @@ from .issue_parser import (
     CHOICE_VIEW,
     parse_generate_body,
     parse_issue_body,
+    parse_rewind_body,
     parse_update_body,
 )
 from .models import Save
@@ -51,7 +52,8 @@ from .save_io import load_json, load_save, write_save
 TITLE_TURN = "[TURN]"
 TITLE_GENERATE = "[GENERATE]"
 TITLE_UPDATE = "[UPDATE]"
-TITLE_PREFIXES = (TITLE_TURN, TITLE_GENERATE, TITLE_UPDATE)
+TITLE_REWIND = "[REWIND]"
+TITLE_PREFIXES = (TITLE_TURN, TITLE_GENERATE, TITLE_UPDATE, TITLE_REWIND)
 
 PROCESSED_ISSUES_MAX = 500
 LABEL_PROCESSED = "turn"
@@ -137,7 +139,8 @@ def _links(repo_slug: str) -> str:
         f"📺 [戦況ボード](https://github.com/{repo_slug}#readme) / "
         f"▶ [ターン入力](https://github.com/{repo_slug}/issues/new?template=turn.yml) / "
         f"✨ [技生成](https://github.com/{repo_slug}/issues/new?template=generate.yml) / "
-        f"🔮 [技アップデート](https://github.com/{repo_slug}/issues/new?template=update.yml)"
+        f"🔮 [技アップデート](https://github.com/{repo_slug}/issues/new?template=update.yml) / "
+        f"⏪ [時戻し](https://github.com/{repo_slug}/issues/new?template=rewind.yml)"
     )
 
 
@@ -232,8 +235,16 @@ def _handle_turn(
     intro_note = ""
     if save.battle is None or not save.battle.active:
         is_first = (save.stats.get("victories", 0) + save.stats.get("defeats", 0)) == 0
+        nemesis = battle_mod.nemesis_enemy(save)
         if is_first:
             save = battle_mod.start_battle(save, world, balance)
+        elif nemesis is not None:
+            # 宿敵は生成をスキップして必ず再登場する(撃破されるまで新しい敵は現れない)
+            enemy, battle_name, intro = nemesis
+            save = battle_mod.start_battle(
+                save, world, balance, enemies=[enemy], battle_name=battle_name, intro=intro
+            )
+            intro_note = intro
         else:
             rng = Rng(save.rng_seed, save.rng_counter)
             enemy, intro, used_ai = generation.generate_enemy(save, world, balance, ai, rng)
@@ -479,6 +490,92 @@ def _handle_update(
     return new_save, reply
 
 
+# ---- [REWIND] ------------------------------------------------------------
+
+
+def _handle_rewind(save: Save, body: str, balance: dict[str, Any], root: str, repo_slug: str) -> tuple[Save, str]:
+    """時戻し: 現在の戦闘の記録上最古のコミットから save/ を復元する(コスト=技生成権1)。
+
+    git履歴は改変しない(復元は新しいコミットとして積まれる)。ワークツリーは触らず、
+    対象コミットのファイルを一時ディレクトリに展開して読む(失敗してもセーブ不変)。
+    """
+    import tempfile
+
+    parsed = parse_rewind_body(body)
+    if parsed.errors:
+        raise _Invalid(
+            "## ⚠ 入力が不正です\n\n" + "\n".join(f"- {e}" for e in parsed.errors) + f"\n\n{_links(repo_slug)}"
+        )
+    if save.battle is None or not save.battle.active:
+        raise _Invalid(
+            f"## ⚠ 戻る戦いがありません\n\n時戻しは戦闘中のみ行えます。\n\n{_links(repo_slug)}"
+        )
+    if save.spell_tokens < 1:
+        raise _Invalid(
+            "## ⚠ 技生成権がありません\n\n時戻しの代償は技生成権1です。"
+            f"レベルアップで獲得してから使ってください。\n\n{_links(repo_slug)}"
+        )
+    current_name = save.battle.name
+    target_sha: str | None = None
+    target_turn = 0
+    try:
+        for sha in gitops.history_for_path(f"{SAVE_DIR}/state.json", cwd=root):
+            state = json.loads(gitops.show_file(sha, f"{SAVE_DIR}/state.json", cwd=root))
+            b = state.get("battle") or {}
+            if not b.get("active") or str(b.get("name")) != current_name:
+                break  # この戦いが始まる前のコミットに到達
+            target_sha = sha
+            target_turn = int(b.get("turn", 1))
+    except (gitops.GitError, json.JSONDecodeError, ValueError, KeyError) as e:
+        print(f"rewind: history scan failed ({type(e).__name__})")
+        raise _Invalid(
+            "## ⚠ 時戻しに失敗\n\n戦いの記録をgit履歴から辿れませんでした。"
+            f"(生成権は消費されていません)\n\n{_links(repo_slug)}"
+        )
+    if target_sha is None:
+        raise _Invalid(
+            "## ⚠ 戻れる時点がありません\n\nこの戦いはまだ履歴に記録されていません。"
+            f"最初のターンを解決してから使えます。(生成権は消費されていません)\n\n{_links(repo_slug)}"
+        )
+    if target_turn >= save.battle.turn:
+        raise _Invalid(
+            f"## ⚠ これ以上戻れません\n\n既にこの戦いの記録最古の時点(ターン{save.battle.turn})にいます。"
+            f"(生成権は消費されていません)\n\n{_links(repo_slug)}"
+        )
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            for rel in gitops.list_files(target_sha, SAVE_DIR, cwd=root):
+                content = gitops.show_file(target_sha, rel, cwd=root)
+                dest = Path(td) / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(content + "\n", encoding="utf-8")
+            restored = load_save(Path(td) / SAVE_DIR)
+    except Exception as e:
+        print(f"rewind: restore failed ({type(e).__name__})")
+        raise _Invalid(
+            "## ⚠ 時戻しに失敗\n\n過去のセーブの復元に失敗しました。セーブは変更されていません。"
+            f"\n\n{_links(repo_slug)}"
+        )
+    restored.spell_tokens = max(0, restored.spell_tokens - 1)
+    # 処理済みIssueは現在の記録と統合する(巻き戻しで過去のIssueが未処理に戻らないように)
+    restored.processed_issues = list(dict.fromkeys([*restored.processed_issues, *save.processed_issues]))
+    del restored.processed_issues[:-PROCESSED_ISSUES_MAX]
+    restored.journal.append(
+        f"時戻しの星片を砕いた——「{current_name}」の記録最古の時点(ターン{target_turn})へ(技生成権-1)"
+    )
+    if restored.battle:
+        restored.battle.recent_log.append("⏪ 時が巻き戻った……星の巡りが再び動き出す。")
+        del restored.battle.recent_log[: -battle_mod.RECENT_LOG_LIMIT]
+    reply = (
+        f"## ⏪ 時戻しの儀式 — 完了\n\n"
+        f"「{current_name}」は**ターン{target_turn}の開始時点**へ巻き戻った。\n\n"
+        f"- 残り技生成権: **{restored.spell_tokens}**\n"
+        f"- 乱数も巻き戻っています。同じ手は同じ結末を辿ります——異なる選択を。\n\n"
+        f"{_links(repo_slug)}"
+    )
+    return restored, reply
+
+
 # ---- 共通処理 ------------------------------------------------------------
 
 
@@ -527,6 +624,8 @@ def process_issue(
                 new_save, reply = _handle_generate(save, body, world, balance, ai, repo_slug)
             elif title.startswith(TITLE_UPDATE):
                 new_save, reply = _handle_update(save, body, world, balance, ai, repo_slug)
+            elif title.startswith(TITLE_REWIND):
+                new_save, reply = _handle_rewind(save, body, balance, root, repo_slug)
             else:
                 new_save, reply, _report = _handle_turn(save, body, world, balance, ai, repo_slug)
         except _Invalid as e:
