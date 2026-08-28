@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "id": "sora_gen1",
+  "kind": "ability",
+  "owner": "sora",
+  "name": "星穿ち",
+  "effects": [
+    {
+      "tag": "damage",
+      "power": 3.4,
+      "hits": 1,
+      "target": "enemy"
+    }
+  ],
+  "desc": "全身の星片の力を切っ先一点に集約し、重く貫く一撃。威力3.4倍",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 3
+}

@@ -15,7 +15,7 @@
   "stunned_turns": 0,
   "dots": [],
   "slots": {
-    "ability1": "sora_a1",
+    "ability1": "sora_gen1",
     "ability2": "sora_a2",
     "ability3": "sora_a3",
     "ultimate": "sora_ult"
