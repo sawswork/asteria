@@ -49,7 +49,8 @@
         "personality": "",
         "tier": "standard",
         "intelligent": false,
-        "xp": 0
+        "xp": 0,
+        "last_special_turn": 0
       }
     ],
     "result": "victory",
@@ -77,10 +78,73 @@
     6,
     7,
     8,
-    9
+    9,
+    10
   ],
   "stats": {
     "victories": 1
   },
-  "pending_update": null
+  "pending_update": {
+    "member_role": "attacker",
+    "slot": "アビ1",
+    "spell_id": "sora_a1",
+    "options": [
+      {
+        "direction": "火力特化:一撃の重さを極限まで高める",
+        "spell": {
+          "name": "星穿ち",
+          "desc": "全身の星片の力を切っ先一点に集約し、重く貫く一撃。威力3.4倍",
+          "ct": 3,
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 3.4,
+              "hits": 1,
+              "target": "enemy"
+            }
+          ]
+        }
+      },
+      {
+        "direction": "防御破壊型:守りごと打ち砕く重撃で被害を底上げ",
+        "spell": {
+          "name": "星砕き",
+          "desc": "敵の守りごと打ち砕く重撃。威力2.4倍に加え、防御を2ターン弱める",
+          "ct": 3,
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 2.4,
+              "hits": 1,
+              "target": "enemy"
+            },
+            {
+              "tag": "debuff",
+              "stat": "def",
+              "mult": 0.75,
+              "turns": 2,
+              "target": "enemy"
+            }
+          ]
+        }
+      },
+      {
+        "direction": "連撃型:光跡を刻む三連の刺突で総火力を稼ぐ",
+        "spell": {
+          "name": "連星走り",
+          "desc": "星光の残光を纏い、三閃の刺突を叩き込む。各撃威力1.3倍",
+          "ct": 3,
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 1.3,
+              "hits": 3,
+              "target": "enemy"
+            }
+          ]
+        }
+      }
+    ],
+    "budget": 29.400000000000002
+  }
 }

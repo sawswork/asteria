@@ -7,7 +7,7 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 🏆 直前の戦い「星蝕の仔狼との遭遇」に**勝利**! 次のターン送信で新しい戦いが始まる。
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード](assets/board.svg)
+![戦況ボード](assets/board.svg?v=i10-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
