@@ -1,0 +1,9 @@
+{
+  "name": "星蝕の暴走",
+  "desc": "蝕まれた星片が体内で臨界を超え、力が荒れ狂う",
+  "line": "……ォォオオオ!",
+  "action": {
+    "name": "暴走せし星牙",
+    "effects": [{"tag": "damage", "power": 2.0, "target": "enemy"}]
+  }
+}

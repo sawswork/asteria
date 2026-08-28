@@ -25,6 +25,17 @@ body:
       default: 0
     validations:
       required: true
+  - type: checkboxes
+    id: oaths
+    attributes:
+      label: 誓約
+      description: 代償と引き換えに技の予算が拡張されます(複数可・合計は×3.0まで)
+      options:
+        - label: HP30%以下でのみ発動(予算×1.6)
+        - label: 使用後に自身1ターン行動不能(予算×1.5)
+        - label: 1戦闘に1回だけ(予算×1.4)
+        - label: 3ターン目までしか使えない(予算×1.3)
+        - label: 精鋭以上の敵にのみ使える(予算×1.35)
   - type: textarea
     id: incantation
     attributes:

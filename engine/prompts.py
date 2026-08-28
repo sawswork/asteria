@@ -9,8 +9,8 @@ import json
 from typing import Any
 
 from .commands import ROLE_LABELS
-from .models import Battle, Member, Save
-from .spells import budget_for
+from .models import Battle, Enemy, Member, Save
+from .spells import budget_for, constraint_multiplier, known_constraints
 
 _JSON_ONLY = "出力はJSONオブジェクトのみ。説明文・前置き・コードフェンスは一切不要。"
 
@@ -39,8 +39,29 @@ def _effect_menu() -> str:
         '- {"tag":"dot","power":0.2-1.5,"turns":1-3,"target":"enemy"}\n'
         '- {"tag":"shield","power":0.5-4.0,"target":"self"|"ally"|"party"}\n'
         '- {"tag":"scan","target":"enemy"} / {"tag":"dispel","target":"enemy"}\n'
-        '- {"tag":"hate","amount":-60〜60,"target":"self"} / {"tag":"taunt","target":"self"}'
+        '- {"tag":"hate","amount":-60〜60,"target":"self"} / {"tag":"taunt","target":"self"}\n'
+        '- {"tag":"field","name":"<残留タグ名>","turns":1-3,"target":"enemy"}(盤面に残留タグを置く)\n'
+        '- damage効果には "field":"<残留タグ名>" を添えられる(対象に対応タグが残っていればチェイン反応で威力増)'
     )
+
+
+def _field_menu(world: dict[str, Any]) -> str:
+    """world.json のチェイン反応表をAIに提示する(名前と倍率はworldデータの引用)。"""
+    tags = world.get("field_tags", {})
+    if not tags:
+        return ""
+    lines = ["この世界の残留タグ: " + " / ".join(f"【{k}】{v}" for k, v in tags.items())]
+    seen: set[frozenset[str]] = set()
+    parts: list[str] = []
+    for r in world.get("chain_reactions", []):
+        key = frozenset({str(r.get("requires")), str(r.get("incoming"))})
+        if key in seen:
+            continue
+        seen.add(key)
+        parts.append(f"{r.get('requires')}+{r.get('incoming')}→{r.get('name')}×{r.get('mult')}")
+    if parts:
+        lines.append("チェイン反応(順不同で成立・素材タグは消費): " + " / ".join(parts))
+    return "\n".join(lines)
 
 
 def build_spell_generation_prompt(
@@ -51,9 +72,18 @@ def build_spell_generation_prompt(
     slot_label: str,
     incantation: str,
     is_ult: bool,
+    constraints: list[str] | None = None,
 ) -> str:
-    budget = budget_for(save.level, member.role, balance, is_ult)
+    constraints = constraints or []
+    budget = budget_for(save.level, member.role, balance, is_ult) * constraint_multiplier(
+        constraints, balance
+    )
     kind = "奥義(CT=0固定・ゲージ制)" if is_ult else "アビリティ(CT1〜5)"
+    oath_line = ""
+    if constraints:
+        table = known_constraints(balance)
+        labels = "、".join(str(table.get(c, {}).get("label", c)) for c in constraints)
+        oath_line = f"\n誓約(この代償で予算が拡張されている。descや名前に誓約の気配を漂わせてよい): {labels}"
     return f"""あなたはRPGの技デザイナー。以下の依頼から{kind}を1つデザインし、JSONで返す。
 
 {_world_header(world)}
@@ -61,11 +91,12 @@ def build_spell_generation_prompt(
 
 依頼者: {member.name}({ROLE_LABELS.get(member.role, member.role)}・{member.title})
 差し替えるスロット: {slot_label}
-プレイヤーの詠唱文(この意図を最大限反映すること): {incantation}
+プレイヤーの詠唱文(この意図を最大限反映すること): {incantation}{oath_line}
 
 制約:
 - コスト予算 {budget:.0f} 以内(コスト計算はエンジンが行い、超過は却下される。効果は控えめに)
 - {_effect_menu()}
+- {_field_menu(world) or "残留タグは自由な名前でよい(8文字以内)"}
 - 効果は1〜3個。名前は14文字以内・この世界の言葉で。descは70文字以内で効果を正確に説明
 
 返すJSON: {{"name": "...", "desc": "...", "ct": {0 if is_ult else "1〜5"}, "effects": [...]}}
@@ -96,6 +127,7 @@ def build_spell_update_prompt(
 制約:
 - 3案は方向性が異なること(例: 火力特化/範囲化/効果追加)。名前は元の面影を残して進化させる
 - {_effect_menu()}
+- {_field_menu(world) or "残留タグは自由な名前でよい(8文字以内)"}
 - 奥義は ct=0 固定。アビリティは ct 1〜5
 
 返すJSON: {{"options": [{{"direction": "方向の短い説明", "spell": {{"name","desc","ct","effects"}}}} ×3]}}
@@ -165,6 +197,34 @@ def build_turn_prompt(save: Save, world: dict[str, Any], battle: Battle) -> str:
 - flavor はこのターンの実況を彩る短文0〜2行(任意)
 
 返すJSON: {{"enemy_commands":[{{"enemy_id","action_key","target_role","line"}}],"flavor":["..."]}}
+{_JSON_ONLY}"""
+
+
+def build_evolution_prompt(save: Save, world: dict[str, Any], enemy: Enemy, reason: str) -> str:
+    reason_txt = {
+        "hp": "HPが半分を割り、追い詰められた",
+        "cc": "行動不能を重ねられ、怒りが臨界に達した",
+    }.get(reason, "戦いの中で力が臨界に達した")
+    field_names = list(world.get("field_tags", {}).keys())
+    field_hint = (
+        f'- damage効果には残留タグ {json.dumps(field_names, ensure_ascii=False)} を "field" として添えてもよい'
+        if field_names
+        else "- 残留タグは使わなくてよい"
+    )
+    return f"""あなたはRPGの敵デザイナー。戦闘中の敵が遂げる「適応進化」の演出と進化技をJSONで返す(能力値ボーナスと弱点はエンジンが決める。あなたは名前と技の見た目のみ)。
+
+{_world_header(world)}
+
+進化する敵: {enemy.name}({enemy.title})/性格: {enemy.personality or "不明"}/ランク: {enemy.tier}
+きっかけ: {reason_txt}
+現在の技: {json.dumps({k: v.get("name", "?") for k, v in enemy.actions.items()}, ensure_ascii=False)}
+
+制約:
+- name は進化の名前(14文字以内)。desc は60文字以内。line は進化の瞬間の咆哮・セリフ(60文字以内・任意)
+- action は進化で得る技1つ {{"name","effects"}}: effectsは damage/dot/debuff/stun/buff で1〜2個、控えめに(予算超過は却下)
+{field_hint}
+
+返すJSON: {{"name","desc","line","action":{{"name","effects":[...]}}}}
 {_JSON_ONLY}"""
 
 

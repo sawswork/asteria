@@ -10,6 +10,7 @@ Issue Forms は本文を「### <ラベル>\n\n<値>」の並びでレンダリ�
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from .commands import ROLE_LABELS, Command
@@ -19,6 +20,9 @@ NO_RESPONSE = "_No response_"
 FREE_TEXT_LABEL = "自由記述"
 INCANTATION_LABEL = "詠唱文"
 DIRECTION_LABEL = "方向性"
+OATH_LABEL = "誓約"
+
+_CHECKED_RE = re.compile(r"^-\s*\[[xX]\]\s*(.+)$")  # チェック済みのcheckbox行
 
 COMMAND_LABELS = frozenset(
     f"{label}の{kind}" for label in ROLE_LABELS.values() for kind in ("行動", "対象")
@@ -107,13 +111,18 @@ class ParsedGenerate:
     member_role: str = ""
     slot: str = ""
     incantation: str = ""
+    oath_labels: list[str] = field(default_factory=list)  # チェックされた誓約の表示文言
     errors: list[str] = field(default_factory=list)
 
 
 def parse_generate_body(body: str) -> ParsedGenerate:
     parsed = ParsedGenerate()
-    known = frozenset({MEMBER_LABEL, SLOT_LABEL})
+    known = frozenset({MEMBER_LABEL, SLOT_LABEL, OATH_LABEL})
     sections, parsed.incantation = _sections(body, known, INCANTATION_LABEL)
+    for line in sections.get(OATH_LABEL, "").splitlines():
+        m = _CHECKED_RE.match(line.strip())
+        if m:
+            parsed.oath_labels.append(m.group(1).strip())
     member_label = sections.get(MEMBER_LABEL, "").strip()
     role = {v: k for k, v in ROLE_LABELS.items()}.get(member_label, "")
     if not role:

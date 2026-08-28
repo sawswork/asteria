@@ -75,7 +75,7 @@ body:
   - type: textarea
     id: free_text
     attributes:
-      label: 自由記述(任意・M2で対応)
-      description: 例「タンクで守って全員で集中攻撃」。M1ではスロット選択のみが実行されます。
+      label: 自由記述(任意)
+      description: 「フルオート 5」と書くと、このターンの後も自動採択で最大5ターンまで連続解決します(上限8)。
     validations:
       required: false

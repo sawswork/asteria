@@ -24,6 +24,7 @@ _EFFECT_SCHEMAS: dict[str, dict[str, Any]] = {
             "tag": {"const": "damage"},
             "power": {"type": "number", "minimum": 0.3, "maximum": 4.0},
             "hits": {"type": "integer", "minimum": 1, "maximum": 3},
+            "field": {"type": "string", "minLength": 1, "maxLength": 8},
             "target": {"enum": ["enemy"]},
         },
         "required": ["tag", "power", "target"],
@@ -106,6 +107,17 @@ _EFFECT_SCHEMAS: dict[str, dict[str, Any]] = {
         "required": ["tag", "target"],
         "additionalProperties": False,
     },
+    "field": {
+        "type": "object",
+        "properties": {
+            "tag": {"const": "field"},
+            "name": {"type": "string", "minLength": 1, "maxLength": 8},
+            "turns": {"type": "integer", "minimum": 1, "maximum": 3},
+            "target": {"enum": ["enemy"]},
+        },
+        "required": ["tag", "name", "turns", "target"],
+        "additionalProperties": False,
+    },
     "hate": {
         "type": "object",
         "properties": {
@@ -147,7 +159,10 @@ def effect_cost(effect: dict[str, Any], balance: dict[str, Any]) -> float:
     c = balance["effect_costs"]
     tag = effect.get("tag")
     if tag == "damage":
-        return float(c["damage_per_power"]) * float(effect["power"]) * int(effect.get("hits", 1))
+        base = float(c["damage_per_power"]) * float(effect["power"]) * int(effect.get("hits", 1))
+        if effect.get("field"):  # 添えタグ(不成立時は2ターン付与に相当)の追加コスト
+            base += float(balance.get("field", {}).get("cost_per_turn", 6)) * 2
+        return base
     if tag == "heal":
         base = float(c["heal_per_power"]) * float(effect["power"])
         return base * float(c["heal_party_mult"]) if effect.get("target") == "party" else base
@@ -173,7 +188,25 @@ def effect_cost(effect: dict[str, Any], balance: dict[str, Any]) -> float:
         return float(c["hate_per_point"]) * abs(float(effect["amount"]))
     if tag == "taunt":
         return float(c["taunt_flat"])
+    if tag == "field":
+        return float(balance.get("field", {}).get("cost_per_turn", 6)) * int(effect["turns"])
     return float("inf")
+
+
+def constraint_multiplier(constraints: list[str], balance: dict[str, Any]) -> float:
+    """制約(誓約)による予算乗算係数。未知の制約IDは無効(1.0扱いにせずエラーは呼び出し側で)。"""
+    table = balance.get("constraints", {})
+    cap = float(table.get("total_mult_cap", 3.0))
+    mult = 1.0
+    for cid in constraints:
+        entry = table.get(cid)
+        if isinstance(entry, dict):
+            mult *= float(entry.get("mult", 1.0))
+    return min(cap, mult)
+
+
+def known_constraints(balance: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {k: v for k, v in balance.get("constraints", {}).items() if isinstance(v, dict)}
 
 
 def ct_factor(ct: int, balance: dict[str, Any]) -> float:
@@ -205,9 +238,14 @@ def budget_for(level: int, role: str, balance: dict[str, Any], is_ult: bool) -> 
 
 
 def validate_spell(
-    spell: dict[str, Any], balance: dict[str, Any], level: int, role: str, is_ult: bool
+    spell: dict[str, Any],
+    balance: dict[str, Any],
+    level: int,
+    role: str,
+    is_ult: bool,
+    constraints: list[str] | None = None,
 ) -> list[str]:
-    """構造+予算の検証。エラー文のリストを返す(空=採用可)。"""
+    """構造+予算の検証。constraints(制約タグ)があれば予算を乗算(上限×3)して判定する。"""
     errors: list[str] = []
     if jsonschema is not None:
         validator = jsonschema.Draft202012Validator(SPELL_SCHEMA)
@@ -226,6 +264,12 @@ def validate_spell(
         errors.append("アビリティのCTは1以上(毎ターン無制限の技は作れません)")
     cost = spell_cost(int(spell["ct"]), list(spell["effects"]), balance, is_ult)
     budget = budget_for(level, role, balance, is_ult)
+    if constraints:
+        table = known_constraints(balance)
+        for cid in constraints:
+            if cid not in table:
+                errors.append(f"未知の制約タグ: {cid}")
+        budget *= constraint_multiplier(constraints, balance)
     if cost > budget + 1e-9:
         errors.append(f"予算超過: コスト{cost:.1f} > 予算{budget:.1f}")
     return errors

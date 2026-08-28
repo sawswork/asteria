@@ -28,10 +28,15 @@ from .commands import (
     Command,
     normal_attack_effects,
 )
-from .models import Ability, Battle, Buff, Dot, Enemy, Member, Save, Ultimate
+import re
+
+from .models import Ability, Battle, Buff, Dot, Enemy, FieldTag, Member, Save, Ultimate
 from .rng import Rng
+from .spells import budget_for, spell_cost
 
 RECENT_LOG_LIMIT = 10
+
+_GEN_RE = re.compile(r"_gen(\d+)$")  # 生成技のID世代(無印=初代gen0)
 
 
 @dataclass
@@ -88,8 +93,11 @@ def start_battle(
         m.shield = 0
         m.stunned_turns = 0
         m.dots = []
+        m.field_tags = []
         for a in m.abilities:
             a.ready_in = 0
+            a.battle_uses = 0
+        m.ultimate.battle_uses = 0
     new.battle = Battle(
         active=True,
         name=str(battle_name or "遭遇戦"),
@@ -109,6 +117,11 @@ class _Ctx:
     report: TurnReport
     ability_term: str = "アビリティ"  # 表示用語。world.json の power_system.ability_term で上書き
     enemy_overrides: dict[str, enemy_ai.EnemyDecision] = field(default_factory=dict)  # 知能層の判断
+    world: dict[str, Any] = field(default_factory=dict)  # チェイン反応表・歪み弱点プールの参照
+    evolution_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)  # AI進化案
+    resonance_ids: set[str] = field(default_factory=set)  # このターン共鳴する技ID
+    resonance_mult: float = 1.0
+    current_amp: float = 1.0  # 実行中アクションの増幅(共鳴)
 
 
 def _log(ctx: _Ctx, line: str) -> None:
@@ -122,6 +135,171 @@ def _damage_amount(ctx: _Ctx, atk: float, power: float, df: float) -> int:
     variance = ctx.rng.uniform(float(b["variance_min"]), float(b["variance_max"]))
     raw = (atk * power - df * float(b["def_coeff"])) * variance
     return max(int(b["min_damage"]), round(raw))
+
+
+def _field_and_chain_mult(
+    ctx: _Ctx, target: Union[Member, Enemy], incoming_field: str | None
+) -> float:
+    """damage効果に添えられた残留タグ(incoming)のチェイン反応と弱点を解決し、倍率を返す。
+
+    反応が成立: 必要タグを消費して倍率、incomingは残さない。不成立: incomingを対象に付与。
+    """
+    mult = 1.0
+    if incoming_field:
+        for reaction in ctx.world.get("chain_reactions", []):
+            if str(reaction.get("incoming")) != incoming_field:
+                continue
+            required = str(reaction.get("requires"))
+            hit = next((t for t in target.field_tags if t.name == required), None)
+            if hit is None:
+                continue
+            mult *= float(reaction.get("mult", 1.0))
+            if reaction.get("consume", True):
+                target.field_tags = [t for t in target.field_tags if t is not hit]
+            _log(ctx, str(reaction.get("log", f"【{reaction.get('name', '連鎖')}】が弾けた!")))
+            break
+        else:
+            _attach_field(ctx, target, incoming_field, turns=2, quiet=True)
+        # 歪み弱点: 該当タグを添えた攻撃は倍率増(敵のみ)
+        if isinstance(target, Enemy):
+            for w in target.weaknesses:
+                if str(w.get("field")) == incoming_field:
+                    mult *= float(w.get("mult", 1.0))
+                    _log(ctx, f"{target.name}の歪みを突いた! 弱点【{incoming_field}】!")
+    return mult
+
+
+def _attach_field(
+    ctx: _Ctx, target: Union[Member, Enemy], name: str, turns: int, quiet: bool = False
+) -> None:
+    cap = int(ctx.balance.get("field", {}).get("max_stacks_per_target", 4))
+    existing = next((t for t in target.field_tags if t.name == name), None)
+    if existing is not None:
+        existing.turns_left = max(existing.turns_left, turns)
+    elif len(target.field_tags) < cap:
+        target.field_tags.append(FieldTag(name=name, turns_left=turns))
+    else:
+        if not quiet:
+            _log(ctx, f"{target.name}への【{name}】は弾かれた(残留タグが飽和)。")
+        return
+    if not quiet:
+        _log(ctx, f"{target.name}に【{name}】が残留した({turns}ターン)。")
+
+
+def _detect_resonance(ctx: _Ctx, commands: dict[str, Command]) -> None:
+    """歴史の共鳴: 初代の技(gen0)と最新世代の生成技(genN)を同一ターンに使うと増幅。
+
+    1戦闘1回。増幅率は「初代技のコストに対する現在予算の余裕」から機械的に決まる
+    (= 古い技ほど現在の水準まで引き上げられる。上限は balance.resonance.amp_cap)。
+    """
+    if ctx.battle.resonance_used:
+        return
+    used: list[tuple[int, Union[Ability, Ultimate], Member]] = []
+    ult_max = int(ctx.balance["ult_gauge"]["max"])
+    for m in ctx.save.party:
+        if not m.alive:
+            continue
+        cmd = commands.get(m.role)
+        if cmd is None:
+            continue
+        spell: Union[Ability, Ultimate, None] = None
+        if cmd.action in ABILITY_INDEX:
+            spell = m.abilities[ABILITY_INDEX[cmd.action]]
+        elif cmd.action == ACTION_ULT and m.ult_gauge >= ult_max:
+            spell = m.ultimate
+        if spell is None:
+            continue
+        match = _GEN_RE.search(spell.id)
+        used.append((int(match.group(1)) if match else 0, spell, m))
+    oldest = next((u for u in used if u[0] == 0), None)
+    newest = max((u for u in used if u[0] > 0), key=lambda u: u[0], default=None)
+    if oldest is None or newest is None:
+        return
+    _gen, gen0_spell, gen0_member = oldest
+    is_ult = isinstance(gen0_spell, Ultimate)
+    cost = spell_cost(getattr(gen0_spell, "ct", 0), gen0_spell.effects, ctx.balance, is_ult)
+    budget = budget_for(ctx.save.level, gen0_member.role, ctx.balance, is_ult)
+    cap = float(ctx.balance.get("resonance", {}).get("amp_cap", 3.0))
+    ctx.resonance_mult = max(1.0, min(cap, budget / cost)) if cost > 0 else 1.0
+    ctx.resonance_ids = {gen0_spell.id, newest[1].id}
+
+
+def _trigger_resonance(ctx: _Ctx) -> None:
+    if not ctx.battle.resonance_used:
+        ctx.battle.resonance_used = True
+        _log(ctx, f"✨ 歴史の共鳴! 最初の技と最新の技が時を越えて響き合う(増幅×{ctx.resonance_mult:.1f})")
+
+
+def _check_evolution_triggers(ctx: _Ctx) -> None:
+    """ターン終了時の進化予告。次のターン開始時に _resolve_pending_evolutions が実体化する。"""
+    ev = ctx.balance.get("evolution", {})
+    max_by_tier = ev.get("max_by_tier", {})
+    for e in ctx.battle.enemies:
+        if not e.alive or e.evolution_pending is not None:
+            continue
+        if e.evolutions_used >= int(max_by_tier.get(e.tier, 0)):
+            continue
+        reason = None
+        if not e.hp_evolution_triggered and e.hp <= e.max_hp * float(ev.get("hp_trigger_ratio", 0.5)):
+            e.hp_evolution_triggered = True  # HP契機は1戦闘1回だけ(回復で再発火させない)
+            reason = "hp"
+        elif e.cc_resist.get("stun", 0) >= int(ev.get("cc_trigger_count", 2)) and not any(
+            x.get("reason") == "cc" for x in e.evolutions
+        ):
+            reason = "cc"
+        if reason:
+            e.evolution_pending = {"reason": reason}
+            _log(ctx, f"⚠ {e.name}の身体が軋み、力が渦を巻いている……(進化の前兆)")
+
+
+def _resolve_pending_evolutions(ctx: _Ctx) -> None:
+    """予告済みの進化をターン開始時に実体化する。
+
+    演出(名前・セリフ・進化技の見た目)は ctx.evolution_overrides(生成層で検証済み)から、
+    数値(攻撃ボーナス・歪み弱点)は balance とセーブ済み乱数からスクリプトが決める。
+    """
+    ev = ctx.balance.get("evolution", {})
+    for e in ctx.battle.enemies:
+        if not e.alive or e.evolution_pending is None:
+            continue
+        spec = ctx.evolution_overrides.get(e.id) or {}
+        evo_name = str(spec.get("name") or "本能の覚醒")[:14]
+        action = spec.get("action")
+        if not (
+            isinstance(action, dict)
+            and action.get("name")
+            and isinstance(action.get("effects"), list)
+            and action["effects"]
+        ):
+            action = {"name": "覚醒の一撃", "effects": [{"tag": "damage", "power": 1.8, "target": "enemy"}]}
+        e.atk = max(1, round(e.atk * float(ev.get("bonus_mult", 1.3))))
+        e.actions["evolved"] = {"name": str(action["name"])[:14], "effects": list(action["effects"])}
+        weak_note = ""
+        pool = [
+            w
+            for w in ctx.world.get("distortion_weaknesses", [])
+            if all(str(x.get("field")) != w for x in e.weaknesses)
+        ]
+        if pool:
+            picked = str(ctx.rng.choice(pool))
+            e.weaknesses.append({"field": picked, "mult": float(ev.get("weakness_mult", 1.5))})
+            weak_note = " だがその力は歪みを生んだ(スキャンで見抜ける)。"
+        e.evolutions.append(
+            {
+                "name": evo_name,
+                "reason": str(e.evolution_pending.get("reason", "")),
+                "turn": ctx.battle.turn,
+                "desc": str(spec.get("desc", ""))[:60],
+            }
+        )
+        e.evolutions_used += 1
+        e.evolution_pending = None
+        _log(
+            ctx,
+            f"💥 {e.name}は進化した——《{evo_name}》! 新たな技「{e.actions['evolved']['name']}」を得た。{weak_note}",
+        )
+        if spec.get("line"):
+            _log(ctx, f"{e.name}「{str(spec['line'])[:60]}」")
 
 
 def _absorb_and_damage(target: Union[Member, Enemy], dmg: int) -> tuple[int, int]:
@@ -185,6 +363,8 @@ def _apply_member_damage(
     if target is None:
         _log(ctx, f"{actor.name}の{source_name}は空を切った(敵がいない)。")
         return
+    chain_mult = _field_and_chain_mult(ctx, target, effect.get("field"))
+    amp = ctx.current_amp
     hits = int(effect.get("hits", 1))
     total = 0
     absorbed_total = 0
@@ -192,6 +372,7 @@ def _apply_member_damage(
         if not target.alive:
             break
         dmg = _damage_amount(ctx, actor.eff_atk(), float(effect["power"]), target.eff_def())
+        dmg = max(1, round(dmg * chain_mult * amp))
         absorbed, _hp_dmg = _absorb_and_damage(target, dmg)
         absorbed_total += absorbed
         total += dmg
@@ -199,6 +380,9 @@ def _apply_member_damage(
     shield_note = f"(シールドが{absorbed_total}吸収)" if absorbed_total else ""
     _log(ctx, f"{actor.name}の{source_name}! {target.name}に{suffix}{total}ダメージ!{shield_note}")
     actor.hate += total * float(ctx.balance["hate"]["damage_mult"])
+    pr = ctx.battle.pr_attack
+    if pr and pr.get("status") == "casting":
+        pr["damage_since"] = int(pr.get("damage_since", 0)) + total  # PR攻撃のブレイク判定用
     if not target.alive:
         _log(ctx, f"{target.name}を撃破!")
         if source is not None:
@@ -209,7 +393,10 @@ def _apply_member_damage(
 def _apply_heal(ctx: _Ctx, actor: Member, effect: dict[str, Any], cmd_target: str, source_name: str) -> None:
     b = ctx.balance["heal"]
     variance = ctx.rng.uniform(float(b["variance_min"]), float(b["variance_max"]))
-    amount = max(int(b.get("min_heal", 1)), round(actor.eff_atk() * float(effect["power"]) * variance))
+    amount = max(
+        int(b.get("min_heal", 1)),
+        round(actor.eff_atk() * float(effect["power"]) * variance * ctx.current_amp),
+    )
     targets: list[Member]
     if effect.get("target") == "party":
         targets = [m for m in ctx.save.party if m.alive]
@@ -314,6 +501,15 @@ def _apply_scan(ctx: _Ctx, actor: Member, cmd_target: str, source_name: str) -> 
     personality = f" 性格={target.personality}" if target.personality else ""
     _log(ctx, f"{actor.name}の{source_name}! {target.name}を分析: 攻{target.atk} 防{target.df} 速{target.agi}{personality}")
     _log(ctx, f"　敵のヘイト: {hate_txt}")
+    if target.field_tags:
+        _log(ctx, "　残留タグ: " + " ".join(f"【{t.name}】" for t in target.field_tags))
+    if target.weaknesses:  # 歪みの開示(進化の代償を見抜く)
+        weak_txt = " ".join(f"【{w['field']}】×{w.get('mult', 1.5)}" for w in target.weaknesses)
+        _log(ctx, f"　歪み(弱点): {weak_txt} — このタグを添えた攻撃が深く刺さる")
+    if target.evolution_pending:
+        _log(ctx, "　⚠ 進化の兆候: 力が渦を巻いている(次のターン、何かが起きる)")
+    elif target.evolutions:
+        _log(ctx, f"　進化履歴: {len(target.evolutions)}回({'/'.join(e.get('name', '?') for e in target.evolutions)})")
 
 
 def _apply_dispel(ctx: _Ctx, actor: Member, cmd_target: str, source_name: str) -> None:
@@ -358,6 +554,11 @@ def _apply_member_effects(
             _apply_scan(ctx, actor, cmd_target, source_name)
         elif tag == "dispel":
             _apply_dispel(ctx, actor, cmd_target, source_name)
+        elif tag == "field":
+            target = _pick_enemy_target(ctx, cmd_target)
+            if target is not None:
+                _attach_field(ctx, target, str(effect["name"]), int(effect["turns"]))
+                actor.hate += float(ctx.balance["hate"]["buff_flat"])
         elif tag == "taunt":
             _apply_taunt(ctx, actor, source_name)
         elif tag == "hate":
@@ -368,6 +569,19 @@ def _apply_member_effects(
             else:
                 _log(ctx, f"{actor.name}は気配を消した(ヘイト{amount})。")
         # 未知タグは無視(効果タグ辞書の拡張はエンジン更新で行う)
+
+
+def _apply_constraint_backlash(ctx: _Ctx, member: Member, spell: Union[Ability, Ultimate]) -> None:
+    """誓約の代償(self_stun_after)。次の1ターンを失う。
+
+    ターン終了時に stunned_turns が1減るため、「使用後Nターン行動不能」は N+1 を積む。
+    """
+    if "self_stun_after" not in spell.constraints:
+        return
+    entry = ctx.balance.get("constraints", {}).get("self_stun_after", {})
+    turns = int(entry.get("stun_turns", 1)) if isinstance(entry, dict) else 1
+    member.stunned_turns = max(member.stunned_turns, turns + 1)
+    _log(ctx, f"{member.name}は誓約の反動で身体の自由を失った!({turns}ターン行動不能)")
 
 
 def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
@@ -387,10 +601,16 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
             return
         ability.ready_in = ability.ct
         ability.usage_count += 1
+        ability.battle_uses += 1
+        if ability.id in ctx.resonance_ids:
+            _trigger_resonance(ctx)
+            ctx.current_amp = ctx.resonance_mult
         _apply_member_effects(
             ctx, member, ability.effects, cmd.target, f"{ctx.ability_term}「{ability.name}」", ability
         )
+        ctx.current_amp = 1.0
         _gain_gauge(ctx, member, int(g["ability"]))
+        _apply_constraint_backlash(ctx, member, ability)
         return
     if cmd.action == ACTION_ULT:
         ult_max = int(g["max"])
@@ -399,9 +619,15 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
             return
         member.ult_gauge = 0
         member.ultimate.usage_count += 1
+        member.ultimate.battle_uses += 1
+        if member.ultimate.id in ctx.resonance_ids:
+            _trigger_resonance(ctx)
+            ctx.current_amp = ctx.resonance_mult
         _apply_member_effects(
             ctx, member, member.ultimate.effects, cmd.target, f"奥義《{member.ultimate.name}》", member.ultimate
         )
+        ctx.current_amp = 1.0
+        _apply_constraint_backlash(ctx, member, member.ultimate)
         return
 
 
@@ -413,6 +639,7 @@ def _apply_enemy_effects(ctx: _Ctx, enemy: Enemy, action: dict[str, Any], target
             return
         tag = effect.get("tag")
         if tag == "damage":
+            chain_mult = _field_and_chain_mult(ctx, target, effect.get("field"))
             hits = int(effect.get("hits", 1))
             total = 0
             absorbed_total = 0
@@ -420,6 +647,7 @@ def _apply_enemy_effects(ctx: _Ctx, enemy: Enemy, action: dict[str, Any], target
                 if not target.alive:
                     break
                 dmg = _damage_amount(ctx, enemy.eff_atk(), float(effect["power"]), target.eff_def())
+                dmg = max(1, round(dmg * chain_mult))
                 absorbed, _hp = _absorb_and_damage(target, dmg)
                 absorbed_total += absorbed
                 total += dmg
@@ -443,6 +671,9 @@ def _apply_enemy_effects(ctx: _Ctx, enemy: Enemy, action: dict[str, Any], target
         elif tag == "buff":  # 自己強化
             enemy.buffs.append(Buff(stat=str(effect["stat"]), mult=float(effect["mult"]), turns_left=int(effect["turns"])))
             _log(ctx, f"{enemy.name}の{name}! {enemy.name}は力を高めた!")
+        elif tag == "field":  # 標的に残留タグを付与(チェイン反応の素材)
+            turns = max(1, min(3, int(effect.get("turns", 2))))
+            _attach_field(ctx, target, str(effect.get("name", "残滓"))[:8] or "残滓", turns)
     _check_end(ctx)
 
 
@@ -518,6 +749,11 @@ def _end_of_turn(ctx: _Ctx) -> None:
         e.buffs = [b for b in e.buffs if b.turns_left > 0]
         if e.stunned_turns > 0:
             e.stunned_turns -= 1
+    for unit in [*ctx.save.party, *ctx.battle.enemies]:
+        for t in unit.field_tags:
+            t.turns_left -= 1
+        unit.field_tags = [t for t in unit.field_tags if t.turns_left > 0]
+    _check_evolution_triggers(ctx)
     if ctx.battle.taunt_turns_left > 0:
         ctx.battle.taunt_turns_left -= 1
         if ctx.battle.taunt_turns_left == 0:
@@ -562,12 +798,15 @@ def resolve_turn(
     balance: dict[str, Any],
     world: dict[str, Any] | None = None,
     enemy_overrides: dict[str, enemy_ai.EnemyDecision] | None = None,
+    evolution_overrides: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[Save, TurnReport]:
     """1ターンを解決する。save は変更せず、新しい Save を返す。
 
     前提: save.battle が active であり、commands は validate_commands を通過している。
-    world は表示用語(power_system)の参照にのみ使う。数値には一切影響しない。
+    world は表示用語(power_system)とデータ表(chain_reactions / distortion_weaknesses)の
+    参照にのみ使う。倍率などの数値は world のデータ表と balance からスクリプトが決める。
     enemy_overrides は知能層AIの判断(enemy_id→EnemyDecision)。正当性は enemy_ai が検証する。
+    evolution_overrides は進化演出のAI案(enemy_id→dict)。generation.generate_evolution で検証済みを渡す。
     """
     if save.battle is None or not save.battle.active:
         raise ValueError("battle is not active")
@@ -585,9 +824,13 @@ def resolve_turn(
         report=report,
         ability_term=ability_term,
         enemy_overrides=dict(enemy_overrides or {}),
+        world=dict(world or {}),
+        evolution_overrides=dict(evolution_overrides or {}),
     )
 
     _log(ctx, f"—— ターン{battle.turn} ——")
+    _resolve_pending_evolutions(ctx)
+    _detect_resonance(ctx, commands)
 
     # 行動順: 実効AGI降順、同値はセーブ済み乱数でタイブレーク
     actors: list[Union[Member, Enemy]] = [m for m in new.party if m.alive] + [

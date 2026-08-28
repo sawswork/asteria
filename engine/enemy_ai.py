@@ -37,7 +37,8 @@ def _rule_target(alive: list[Member], rng: Rng) -> Member:
 
 
 def _pattern_action_key(enemy: Enemy, battle: Battle, strong_attack_every: int) -> str:
-    special_key = "special" if "special" in enemy.actions else ("strong" if "strong" in enemy.actions else None)
+    # 進化技(evolved)があれば特殊枠として最優先で使う
+    special_key = next((k for k in ("evolved", "special", "strong") if k in enemy.actions), None)
     if special_key and strong_attack_every > 0 and battle.turn % strong_attack_every == 0:
         return special_key
     return "normal"

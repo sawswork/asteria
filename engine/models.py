@@ -38,6 +38,8 @@ class Ability:
     ready_in: int = 0  # 0なら使用可。使用時に ct をセットし毎ターン終了時に減算
     usage_count: int = 0  # 使い込みボーナス(技アップデートの予算)に使う
     kills: int = 0
+    constraints: list[str] = field(default_factory=list)  # 制約タグ(予算乗算の代償)
+    battle_uses: int = 0  # この戦闘での使用回数(once_per_battle判定。戦闘開始でリセット)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -49,6 +51,8 @@ class Ability:
             "ready_in": self.ready_in,
             "usage_count": self.usage_count,
             "kills": self.kills,
+            "constraints": self.constraints,
+            "battle_uses": self.battle_uses,
         }
 
     @staticmethod
@@ -62,6 +66,8 @@ class Ability:
             ready_in=int(d.get("ready_in", 0)),
             usage_count=int(d.get("usage_count", 0)),
             kills=int(d.get("kills", 0)),
+            constraints=[str(c) for c in d.get("constraints", [])],
+            battle_uses=int(d.get("battle_uses", 0)),
         )
 
 
@@ -73,6 +79,8 @@ class Ultimate:
     desc: str = ""
     usage_count: int = 0
     kills: int = 0
+    constraints: list[str] = field(default_factory=list)
+    battle_uses: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -82,6 +90,8 @@ class Ultimate:
             "desc": self.desc,
             "usage_count": self.usage_count,
             "kills": self.kills,
+            "constraints": self.constraints,
+            "battle_uses": self.battle_uses,
         }
 
     @staticmethod
@@ -93,7 +103,24 @@ class Ultimate:
             desc=str(d.get("desc", "")),
             usage_count=int(d.get("usage_count", 0)),
             kills=int(d.get("kills", 0)),
+            constraints=[str(c) for c in d.get("constraints", [])],
+            battle_uses=int(d.get("battle_uses", 0)),
         )
+
+
+@dataclass
+class FieldTag:
+    """盤面残留タグ(チェイン反応の素材)。名前はworld.jsonのfield_tags辞書に属する。"""
+
+    name: str
+    turns_left: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"name": self.name, "turns_left": self.turns_left}
+
+    @staticmethod
+    def from_dict(d: dict[str, Any]) -> "FieldTag":
+        return FieldTag(name=str(d["name"]), turns_left=int(d["turns_left"]))
 
 
 @dataclass
@@ -133,6 +160,7 @@ class Member:
     shield: int = 0
     stunned_turns: int = 0
     dots: list[Dot] = field(default_factory=list)
+    field_tags: list[FieldTag] = field(default_factory=list)
 
     @property
     def alive(self) -> bool:
@@ -173,6 +201,7 @@ class Member:
             "shield": self.shield,
             "stunned_turns": self.stunned_turns,
             "dots": [x.to_dict() for x in self.dots],
+            "field_tags": [x.to_dict() for x in self.field_tags],
         }
 
     @staticmethod
@@ -195,6 +224,7 @@ class Member:
             shield=int(d.get("shield", 0)),
             stunned_turns=int(d.get("stunned_turns", 0)),
             dots=[Dot.from_dict(x) for x in d.get("dots", [])],
+            field_tags=[FieldTag.from_dict(x) for x in d.get("field_tags", [])],
         )
 
 
@@ -219,6 +249,12 @@ class Enemy:
     intelligent: bool = False  # True=知能層(AI判断)、False=ルール層
     xp: int = 0
     last_special_turn: int = 0  # 特殊技を最後に使ったターン(知能層の連発防止)
+    field_tags: list[FieldTag] = field(default_factory=list)
+    weaknesses: list[dict[str, Any]] = field(default_factory=list)  # 歪み: [{"field", "mult"}]
+    evolutions: list[dict[str, Any]] = field(default_factory=list)  # 進化履歴(宿敵が保持)
+    evolutions_used: int = 0
+    evolution_pending: Optional[dict[str, Any]] = None  # 予告中の進化 {"reason": ...}
+    hp_evolution_triggered: bool = False
 
     @property
     def alive(self) -> bool:
@@ -261,6 +297,12 @@ class Enemy:
             "intelligent": self.intelligent,
             "xp": self.xp,
             "last_special_turn": self.last_special_turn,
+            "field_tags": [x.to_dict() for x in self.field_tags],
+            "weaknesses": self.weaknesses,
+            "evolutions": self.evolutions,
+            "evolutions_used": self.evolutions_used,
+            "evolution_pending": self.evolution_pending,
+            "hp_evolution_triggered": self.hp_evolution_triggered,
         }
 
     @staticmethod
@@ -285,6 +327,12 @@ class Enemy:
             intelligent=bool(d.get("intelligent", False)),
             xp=int(d.get("xp", 0)),
             last_special_turn=int(d.get("last_special_turn", 0)),
+            field_tags=[FieldTag.from_dict(x) for x in d.get("field_tags", [])],
+            weaknesses=list(d.get("weaknesses", [])),
+            evolutions=list(d.get("evolutions", [])),
+            evolutions_used=int(d.get("evolutions_used", 0)),
+            evolution_pending=d.get("evolution_pending"),
+            hp_evolution_triggered=bool(d.get("hp_evolution_triggered", False)),
         )
 
 
@@ -299,6 +347,8 @@ class Battle:
     taunt_turns_left: int = 0
     recent_log: list[str] = field(default_factory=list)  # ボード表示用の直近ログ
     scanned: list[str] = field(default_factory=list)  # スキャン済み敵ID(ボードに詳細表示)
+    resonance_used: bool = False  # 歴史の共鳴(1戦闘1回)
+    pr_attack: Optional[dict[str, Any]] = None  # PR攻撃の状態 {"number","deadline_turn","override",...}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -311,6 +361,8 @@ class Battle:
             "taunt_turns_left": self.taunt_turns_left,
             "recent_log": self.recent_log,
             "scanned": self.scanned,
+            "resonance_used": self.resonance_used,
+            "pr_attack": self.pr_attack,
         }
 
     @staticmethod
@@ -325,6 +377,8 @@ class Battle:
             taunt_turns_left=int(d.get("taunt_turns_left", 0)),
             recent_log=list(d.get("recent_log", [])),
             scanned=[str(x) for x in d.get("scanned", [])],
+            resonance_used=bool(d.get("resonance_used", False)),
+            pr_attack=d.get("pr_attack"),
         )
 
 

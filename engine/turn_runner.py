@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -24,7 +25,18 @@ from . import battle as battle_mod
 from . import board as board_mod
 from . import generation, gitops, screen, turn_ai
 from .ai_client import AiClient
-from .commands import ROLE_LABELS, InvalidMove, validate_commands
+from .commands import (
+    ABILITY_INDEX,
+    ACTION_NORMAL,
+    ACTION_ULT,
+    ACTION_WAIT,
+    ROLE_LABELS,
+    TARGET_AUTO,
+    Command,
+    InvalidMove,
+    validate_commands,
+)
+from .spells import constraint_multiplier, known_constraints
 from .gh_api import GhApi
 from .issue_parser import (
     CHOICE_VIEW,
@@ -159,6 +171,54 @@ def _reply_invalid_turn(errors: list[InvalidMove], repo_slug: str) -> str:
 
 # ---- [TURN] --------------------------------------------------------------
 
+_FULL_AUTO_RE = re.compile(r"フルオート\s*(\d+)")  # 自由記述「フルオート N」= 合計Nターンまで自動続行
+
+
+def _evolution_overrides(
+    save: Save, world: dict[str, Any], balance: dict[str, Any], ai: AiClient
+) -> dict[str, dict[str, Any]]:
+    """進化予告済みの敵の演出をAIに生成させる(生成層で検証済み。失敗は決定的演出)。"""
+    battle = save.battle
+    if battle is None or not battle.active:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for e in battle.enemies:
+        if e.alive and e.evolution_pending is not None:
+            spec, _used_ai = generation.generate_evolution(save, world, balance, ai, e)
+            out[e.id] = spec
+    return out
+
+
+def _auto_commands(save: Save, balance: dict[str, Any]) -> dict[str, Command]:
+    """フルオートの自動採択(決定的ルール)。奥義解放>回復(必要時)>攻撃アビ>通常攻撃。
+
+    誓約付きの技は条件外で不正手になり得るため自動では使わない。
+    """
+    ult_max = int(balance["ult_gauge"]["max"])
+    cmds: dict[str, Command] = {}
+    need_heal = any(m.alive and m.hp < m.max_hp * 0.6 for m in save.party)
+    for m in save.party:
+        if not m.alive:
+            cmds[m.role] = Command(role=m.role, action=ACTION_WAIT, target=TARGET_AUTO)
+            continue
+        action = ACTION_NORMAL
+        if m.ult_gauge >= ult_max and not m.ultimate.constraints:
+            action = ACTION_ULT
+        else:
+            for label, idx in ABILITY_INDEX.items():
+                a = m.abilities[idx]
+                if a.ready_in > 0 or a.constraints:
+                    continue
+                tags = {e.get("tag") for e in a.effects}
+                if need_heal and "heal" in tags:
+                    action = label
+                    break
+                if not need_heal and ("damage" in tags or "dot" in tags):
+                    action = label
+                    break
+        cmds[m.role] = Command(role=m.role, action=action, target=TARGET_AUTO)
+    return cmds
+
 
 def _handle_turn(
     save: Save,
@@ -192,13 +252,33 @@ def _handle_turn(
     if errors:
         raise _Invalid(_reply_invalid_turn(errors, repo_slug))
 
-    overrides, flavor = turn_ai.compute_enemy_overrides(save, world, ai)
-    new_save, report = battle_mod.resolve_turn(save, parsed.commands, balance, world, overrides)
-    for line in flavor:
-        report.lines.append(f"({line})")
-        if new_save.battle:
-            new_save.battle.recent_log.append(f"({line})")
-            del new_save.battle.recent_log[: -battle_mod.RECENT_LOG_LIMIT]
+    def _run_one(cur: Save, commands: dict[str, Command]) -> tuple[Save, battle_mod.TurnReport]:
+        overrides, flavor = turn_ai.compute_enemy_overrides(cur, world, ai)
+        evo = _evolution_overrides(cur, world, balance, ai)
+        nxt, rep = battle_mod.resolve_turn(cur, commands, balance, world, overrides, evo)
+        for line in flavor:
+            rep.lines.append(f"({line})")
+            if nxt.battle:
+                nxt.battle.recent_log.append(f"({line})")
+                del nxt.battle.recent_log[: -battle_mod.RECENT_LOG_LIMIT]
+        return nxt, rep
+
+    new_save, report = _run_one(save, parsed.commands)
+    all_lines = list(report.lines)
+    first_turn = report.turn
+    auto_note = ""
+    auto_match = _FULL_AUTO_RE.search(parsed.free_text)
+    if auto_match:
+        limit = max(1, min(int(auto_match.group(1)), int(balance.get("full_auto_max_turns", 8))))
+        turns_done = 1
+        while turns_done < limit and not report.result and new_save.battle and new_save.battle.active:
+            auto_cmds = _auto_commands(new_save, balance)
+            if validate_commands(new_save, new_save.battle, auto_cmds, balance):
+                break  # 自動手が組めない状態(想定外)。ここまでの結果で打ち切る
+            new_save, report = _run_one(new_save, auto_cmds)
+            all_lines.extend(report.lines)
+            turns_done += 1
+        auto_note = f"🤖 フルオート: {turns_done}ターンを自動解決(指定{limit}ターン上限)"
 
     recruit_note = ""
     if report.result == "victory":
@@ -214,14 +294,17 @@ def _handle_turn(
             )
             report.lines.append(recruit_note)
 
-    parts: list[str] = [f"## ⚔ ターン{report.turn}の結果\n"]
+    turn_range = f"ターン{first_turn}" if report.turn == first_turn else f"ターン{first_turn}〜{report.turn}"
+    parts: list[str] = [f"## ⚔ {turn_range}の結果\n"]
+    if auto_note:
+        parts.append(auto_note + "\n")
     if started_new_battle and new_save.battle:
         parts.append(f"新しい戦いが始まった: **{new_save.battle.name}**")
         if intro_note:
             parts.append(f"> {intro_note}")
         parts.append("")
     parts.append("```")
-    parts.extend(report.lines)
+    parts.extend(all_lines)
     parts.append("```\n")
     if report.result == "victory":
         nxt = battle_mod.xp_to_next(new_save.level, balance)
@@ -236,8 +319,8 @@ def _handle_turn(
     elif new_save.battle:
         enemy_lines = ", ".join(f"{e.name} HP {e.hp}/{e.max_hp}" for e in new_save.battle.enemies)
         parts.append(f"**敵の状態**: {enemy_lines}\n")
-    if parsed.free_text:
-        parts.append("> ℹ 自由記述の解釈(スロットへのマッピング)は次のマイルストーンで対応予定です。\n")
+    if parsed.free_text and not auto_match:
+        parts.append("> ℹ 自由記述からは「フルオート N」だけを解釈します(例: フルオート 5)。\n")
     parts.append(_links(repo_slug))
     return new_save, "\n".join(parts), report
 
@@ -270,10 +353,20 @@ def _handle_generate(
     assert member is not None  # ロールはパース時に検証済み
     is_ult = parsed.slot == "奥義"
     old_name = member.ultimate.name if is_ult else member.abilities[{"アビ1": 0, "アビ2": 1, "アビ3": 2}[parsed.slot]].name
+    # 誓約checkbox: フォームの表示文言 → balance.constraints のID(先頭一致。未知の文言は無視)
+    table = known_constraints(balance)
+    constraints = []
+    for text in parsed.oath_labels:
+        cid = next(
+            (k for k, v in table.items() if str(v.get("label", "")) and text.startswith(str(v["label"]))),
+            None,
+        )
+        if cid and cid not in constraints:
+            constraints.append(cid)
     spell, used_ai = generation.generate_spell(
-        new_save, world, balance, ai, member, parsed.slot, parsed.incantation, is_ult
+        new_save, world, balance, ai, member, parsed.slot, parsed.incantation, is_ult, constraints
     )
-    generation.install_spell(new_save, member, parsed.slot, spell)
+    generation.install_spell(new_save, member, parsed.slot, spell, constraints)
     new_save.spell_tokens -= 1
     pending = new_save.pending_update
     if pending and pending.get("member_role") == parsed.member_role and pending.get("slot") == parsed.slot:
@@ -281,11 +374,15 @@ def _handle_generate(
     new_save.journal.append(f"{member.name}が新しい技「{spell['name']}」を紡いだ(旧「{old_name}」)")
 
     source_note = "" if used_ai else "\n> ⚠ AI生成が利用できなかったため、ルール層のテンプレートで代替しました。"
+    oath_note = ""
+    if constraints:
+        labels = "、".join(str(table[c].get("label", c)) for c in constraints)
+        oath_note = f"\n⛓ 誓約: {labels}(予算×{constraint_multiplier(constraints, balance):.2f})"
     reply = (
         f"## ✨ 技生成の儀式 — 完了\n\n"
         f"{member.name}の**{parsed.slot}**が「{old_name}」から生まれ変わった:\n\n"
         f"{_spell_block(spell)}\n"
-        f"{source_note}\n\n"
+        f"{oath_note}{source_note}\n\n"
         f"残り生成権: **{new_save.spell_tokens}**(古い技は魔導書 `save/spells/` に残ります)\n\n"
         f"{_links(repo_slug)}"
     )

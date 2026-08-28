@@ -6,9 +6,9 @@ READMEの戦況ボードが表示する。不正手はここで検知し、エ�
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, Union
 
-from .models import Battle, Member, Save
+from .models import Ability, Battle, Member, Save, Ultimate
 
 # ---- 不変のスロット語彙 -------------------------------------------------
 
@@ -60,7 +60,7 @@ def normal_attack_effects(balance: dict[str, Any]) -> list[dict[str, Any]]:
     return [{"tag": "damage", "power": power, "target": "enemy"}]
 
 
-OFFENSE_TAGS = ("damage", "dot", "debuff", "stun", "scan", "dispel")
+OFFENSE_TAGS = ("damage", "dot", "debuff", "stun", "scan", "dispel", "field")
 
 
 def _primary_effect_kind(effects: list[dict]) -> str:
@@ -84,6 +84,54 @@ def _effects_for_action(member: Member, action: str, balance: dict[str, Any]) ->
     if action == ACTION_NORMAL:
         return normal_attack_effects(balance)
     return []
+
+
+def _constraint_violations(
+    member: Member,
+    spell: Union[Ability, Ultimate],
+    battle: Battle,
+    balance: dict[str, Any],
+    cmd_target: str,
+) -> list[str]:
+    """誓約(制約タグ)の発動条件チェック。条件を満たさない理由のリストを返す。
+
+    しきい値・対象ランク等の数値は balance.constraints の各エントリに置く(係数一元化)。
+    """
+    table = balance.get("constraints", {})
+    reasons: list[str] = []
+
+    def _entry(cid: str) -> dict[str, Any]:
+        e = table.get(cid)
+        return e if isinstance(e, dict) else {}
+
+    def _label(cid: str) -> str:
+        return str(_entry(cid).get("label", cid))
+
+    for cid in spell.constraints:
+        if cid == "hp_below_30":
+            ratio = float(_entry(cid).get("ratio", 0.3))
+            if member.hp > member.max_hp * ratio:
+                reasons.append(f"誓約「{_label(cid)}」: 今のHPでは発動できません")
+        elif cid == "once_per_battle":
+            if spell.battle_uses >= 1:
+                reasons.append(f"誓約「{_label(cid)}」: この戦闘では既に使いました")
+        elif cid == "first_three_turns":
+            turns = int(_entry(cid).get("turns", 3))
+            if battle.turn > turns:
+                reasons.append(f"誓約「{_label(cid)}」: ターン{turns}を過ぎています")
+        elif cid == "vs_elite_plus":
+            tiers = [str(t) for t in _entry(cid).get("tiers", ["elite", "boss"])]
+            target: Optional[Any] = None
+            if cmd_target in TARGET_ENEMIES:
+                idx = TARGET_ENEMIES.index(cmd_target)
+                if idx < len(battle.enemies) and battle.enemies[idx].alive:
+                    target = battle.enemies[idx]
+            if target is None:  # 自動/無効指定は実行時と同じく先頭の生存敵
+                target = next((e for e in battle.enemies if e.alive), None)
+            if target is None or target.tier not in tiers:
+                reasons.append(f"誓約「{_label(cid)}」: この敵には向けられません")
+        # self_stun_after は発動条件ではなく代償(実行時に battle.py が科す)
+    return reasons
 
 
 def validate_commands(
@@ -131,6 +179,17 @@ def validate_commands(
                 )
             )
             continue
+
+        spell_obj: Union[Ability, Ultimate, None] = None
+        if cmd.action in ABILITY_INDEX:
+            spell_obj = member.abilities[ABILITY_INDEX[cmd.action]]
+        elif cmd.action == ACTION_ULT:
+            spell_obj = member.ultimate
+        if spell_obj is not None and spell_obj.constraints:
+            violations = _constraint_violations(member, spell_obj, battle, balance, cmd.target)
+            if violations:
+                errors.extend(InvalidMove(role, v) for v in violations)
+                continue
 
         # 対象の整合性チェック
         kind = _primary_effect_kind(_effects_for_action(member, cmd.action, balance))

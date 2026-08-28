@@ -40,9 +40,21 @@ _ENEMY_EFFECT_SCHEMAS: list[dict[str, Any]] = [
             "tag": {"const": "damage"},
             "power": {"type": "number", "minimum": 0.3, "maximum": 2.5},
             "hits": {"type": "integer", "minimum": 1, "maximum": 3},
+            "field": {"type": "string", "minLength": 1, "maxLength": 8},
             "target": {"const": "enemy"},
         },
         "required": ["tag", "power", "target"],
+        "additionalProperties": False,
+    },
+    {
+        "type": "object",
+        "properties": {
+            "tag": {"const": "field"},
+            "name": {"type": "string", "minLength": 1, "maxLength": 8},
+            "turns": {"type": "integer", "minimum": 1, "maximum": 3},
+            "target": {"const": "enemy"},
+        },
+        "required": ["tag", "name", "turns", "target"],
         "additionalProperties": False,
     },
     {
@@ -139,6 +151,19 @@ ENEMY_GEN_SCHEMA: dict[str, Any] = {
         "intro": {"type": "string", "maxLength": 80},
     },
     "required": ["name", "personality", "tier", "intelligent", "stats", "actions", "intro"],
+    "additionalProperties": False,
+}
+
+# 敵の適応進化(演出と進化技のみ。数値ボーナス・歪み弱点はエンジンが決める)
+EVOLUTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 14},
+        "desc": {"type": "string", "maxLength": 60},
+        "line": {"type": "string", "maxLength": 60},
+        "action": _ENEMY_ACTION_SCHEMA,
+    },
+    "required": ["name", "action"],
     "additionalProperties": False,
 }
 

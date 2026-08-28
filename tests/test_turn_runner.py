@@ -261,11 +261,11 @@ def test_comment_failure_propagates_after_turn_consumed(tmp_path):
     assert gh.closed == []
 
 
-def test_free_text_gets_m2_notice(tmp_path):
+def test_free_text_gets_full_auto_notice(tmp_path):
     root = make_root(tmp_path)
     gh = FakeGhApi()
     run(root, make_issue(1, body_from(all_normal(), free_text="タンクで守って")), gh=gh)
-    assert "自由記述の解釈" in gh.comments[0][1]  # 未対応の明記
+    assert "フルオート N" in gh.comments[0][1]  # 解釈対象の明記
 
 
 # ---- git統合(ローカルbareリポジトリ) ----------------------------------

@@ -92,5 +92,34 @@
     "max_bonus": 30.0
   },
   "elite_every_battles": 4,
-  "recruit_every_victories": 3
+  "recruit_every_victories": 3,
+  "field": {
+    "cost_per_turn": 6,
+    "max_stacks_per_target": 4
+  },
+  "constraints": {
+    "hp_below_30": {"mult": 1.6, "label": "HP30%以下でのみ発動", "ratio": 0.3},
+    "self_stun_after": {"mult": 1.5, "label": "使用後に自身1ターン行動不能", "stun_turns": 1},
+    "once_per_battle": {"mult": 1.4, "label": "1戦闘に1回だけ"},
+    "first_three_turns": {"mult": 1.3, "label": "3ターン目までしか使えない", "turns": 3},
+    "vs_elite_plus": {"mult": 1.35, "label": "精鋭以上の敵にのみ使える", "tiers": ["elite", "boss"]},
+    "total_mult_cap": 3.0
+  },
+  "evolution": {
+    "max_by_tier": {"minion": 0, "standard": 0, "elite": 1, "boss": 2},
+    "hp_trigger_ratio": 0.5,
+    "cc_trigger_count": 2,
+    "bonus_mult": 1.3,
+    "weakness_mult": 1.5,
+    "action_budget_mult": 1.3
+  },
+  "resonance": {
+    "amp_cap": 3.0
+  },
+  "full_auto_max_turns": 8,
+  "pr_attack": {
+    "hp_trigger_ratio": 0.6,
+    "deadline_turns": 3,
+    "break_damage": 90
+  }
 }

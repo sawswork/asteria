@@ -12,7 +12,7 @@ from . import ai_schemas, prompts
 from .ai_client import AiClient, AiError
 from .models import Ability, Enemy, Member, Save, Ultimate
 from .rng import Rng
-from .spells import budget_for, effect_cost, spell_cost, validate_spell
+from .spells import budget_for, constraint_multiplier, effect_cost, spell_cost, validate_spell
 
 # ---- 技生成 --------------------------------------------------------------
 
@@ -32,10 +32,15 @@ def _scale_damage_spell(budget: float, ct: int, balance: dict[str, Any]) -> floa
 
 
 def fallback_spell(
-    save: Save, balance: dict[str, Any], member: Member, incantation: str, is_ult: bool
+    save: Save,
+    balance: dict[str, Any],
+    member: Member,
+    incantation: str,
+    is_ult: bool,
+    budget_mult: float = 1.0,
 ) -> dict[str, Any]:
     """決定的なフォールバック技(役割テンプレ・予算内)。名前は詠唱文から採る。"""
-    budget = budget_for(save.level, member.role, balance, is_ult)
+    budget = budget_for(save.level, member.role, balance, is_ult) * max(1.0, budget_mult)
     if incantation.strip():
         first_line = incantation.strip().splitlines()[0]
         for sep in ("、", "。", ",", "."):  # 読点で切って自然な短い名前にする
@@ -81,10 +86,15 @@ def generate_spell(
     slot_label: str,
     incantation: str,
     is_ult: bool,
+    constraints: list[str] | None = None,
 ) -> tuple[dict[str, Any], bool]:
-    """(技dict, AI採用か) を返す。却下時は理由付きで再生成し、尽きたらフォールバック。"""
+    """(技dict, AI採用か) を返す。却下時は理由付きで再生成し、尽きたらフォールバック。
+
+    constraints(誓約)があれば予算が乗算拡張された状態で検証する。
+    """
+    constraints = constraints or []
     base_prompt = prompts.build_spell_generation_prompt(
-        save, world, balance, member, slot_label, incantation, is_ult
+        save, world, balance, member, slot_label, incantation, is_ult, constraints
     )
     feedback = ""
     try:
@@ -92,7 +102,7 @@ def generate_spell(
             spell = ai.call(
                 "spell_gen", base_prompt + feedback, ai_schemas.SPELL_GEN_SCHEMA, purpose="generation"
             )
-            errors = validate_spell(spell, balance, save.level, member.role, is_ult)
+            errors = validate_spell(spell, balance, save.level, member.role, is_ult, constraints)
             if not errors:
                 return spell, True
             print(f"generation: spell rejected ({len(errors)} errors); regenerating")
@@ -105,15 +115,24 @@ def generate_spell(
         print(f"generation: spell ai failed ({e}); falling back")
     except Exception as e:  # 検証中の想定外もフォールバックへ
         print(f"generation: spell validation error ({type(e).__name__}); falling back")
-    return fallback_spell(save, balance, member, incantation, is_ult), False
+    mult = constraint_multiplier(constraints, balance)
+    return fallback_spell(save, balance, member, incantation, is_ult, mult), False
 
 
-def install_spell(save: Save, member: Member, slot_label: str, spell: dict[str, Any]) -> str:
+def install_spell(
+    save: Save,
+    member: Member,
+    slot_label: str,
+    spell: dict[str, Any],
+    constraints: list[str] | None = None,
+) -> str:
     """検証済みの技をスロットへ装着し、新しい技IDを返す(旧技はファイルとして魔導書に残る)。"""
     spell_id = _next_spell_id(save, member)
+    constraints = list(constraints or [])
     if slot_label == "奥義":
         member.ultimate = Ultimate(
-            id=spell_id, name=str(spell["name"]), effects=list(spell["effects"]), desc=str(spell["desc"])
+            id=spell_id, name=str(spell["name"]), effects=list(spell["effects"]), desc=str(spell["desc"]),
+            constraints=constraints,
         )
     else:
         index = {"アビ1": 0, "アビ2": 1, "アビ3": 2}[slot_label]
@@ -123,6 +142,7 @@ def install_spell(save: Save, member: Member, slot_label: str, spell: dict[str, 
             ct=int(spell["ct"]),
             effects=list(spell["effects"]),
             desc=str(spell["desc"]),
+            constraints=constraints,
         )
     return spell_id
 
@@ -136,7 +156,9 @@ def update_budget(save: Save, balance: dict[str, Any], member: Member, obj: Abil
         float(ub["max_bonus"]),
         obj.usage_count * float(ub["per_use"]) + obj.kills * float(ub["per_kill"]),
     )
-    return budget_for(save.level, member.role, balance, is_ult) + bonus
+    # 誓約付きの技は拡張予算のまま進化させる(誓約も引き継がれる)
+    base = budget_for(save.level, member.role, balance, is_ult) * constraint_multiplier(obj.constraints, balance)
+    return base + bonus
 
 
 def _shrink_effects_step(effects: list[dict[str, Any]]) -> bool:
@@ -249,7 +271,7 @@ def apply_update_option(save: Save, member: Member, slot_label: str, option: dic
         old = member.ultimate
         member.ultimate = Ultimate(
             id=spell_id, name=str(spell["name"]), effects=list(spell["effects"]), desc=str(spell["desc"]),
-            usage_count=old.usage_count, kills=old.kills,
+            usage_count=old.usage_count, kills=old.kills, constraints=list(old.constraints),
         )
     else:
         index = {"アビ1": 0, "アビ2": 1, "アビ3": 2}[slot_label]
@@ -257,6 +279,7 @@ def apply_update_option(save: Save, member: Member, slot_label: str, option: dic
         member.abilities[index] = Ability(
             id=spell_id, name=str(spell["name"]), ct=int(spell["ct"]), effects=list(spell["effects"]),
             desc=str(spell["desc"]), usage_count=old.usage_count, kills=old.kills,
+            constraints=list(old.constraints),
         )
     return spell_id
 
@@ -369,6 +392,50 @@ def generate_enemy(
         print(f"generation: enemy validation error ({type(e).__name__}); falling back")
     enemy, intro = fallback_enemy(save, world, balance, rng, tier)
     return enemy, intro, False
+
+
+# ---- 敵の適応進化 --------------------------------------------------------
+
+
+def fallback_evolution() -> dict[str, Any]:
+    """決定的な進化演出(AI不通時)。数値ボーナスはbattle側がbalanceから科すので演出のみ。"""
+    return {
+        "name": "本能の覚醒",
+        "desc": "追い詰められた本能が、力を臨界まで暴走させた",
+        "line": "",
+        "action": {"name": "覚醒の一撃", "effects": [{"tag": "damage", "power": 1.8, "target": "enemy"}]},
+    }
+
+
+def generate_evolution(
+    save: Save, world: dict[str, Any], balance: dict[str, Any], ai: AiClient, enemy: Enemy
+) -> tuple[dict[str, Any], bool]:
+    """進化の演出(名前・セリフ)と進化技をAIに委ね、予算検証して返す。(演出dict, AI採用か)。
+
+    攻撃ボーナス・歪み弱点の数値は battle._resolve_pending_evolutions がbalanceから決める。
+    """
+    reason = str((enemy.evolution_pending or {}).get("reason", ""))
+    try:
+        resp = ai.call(
+            "evolution",
+            prompts.build_evolution_prompt(save, world, enemy, reason),
+            ai_schemas.EVOLUTION_SCHEMA,
+            purpose="generation",
+        )
+        limit = (
+            budget_for(save.level, "attacker", balance, False)
+            * float(balance["enemy_scale"]["special_budget_mult"])
+            * float(balance.get("evolution", {}).get("action_budget_mult", 1.3))
+        )
+        cost = sum(max(0.0, effect_cost(e, balance)) for e in resp["action"]["effects"])
+        if cost <= limit:
+            return resp, True
+        print("generation: evolution rejected (action over budget); falling back")
+    except AiError as e:
+        print(f"generation: evolution ai failed ({e}); falling back")
+    except Exception as e:  # 検証中の想定外もフォールバックへ(ゲームを止めない)
+        print(f"generation: evolution validation error ({type(e).__name__}); falling back")
+    return fallback_evolution(), False
 
 
 # ---- 勧誘 ----------------------------------------------------------------

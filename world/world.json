@@ -235,5 +235,47 @@
       "intro": "梢の闇で、二つの光る眼がこちらを見下ろしていた。"
     }
   ],
-  "recruit_pool_roles": ["attacker", "support", "tank", "healer"]
+  "recruit_pool_roles": ["attacker", "support", "tank", "healer"],
+  "field_tags": {
+    "濡れ星": "星の雫を纏わせる。雷紋との共鳴で感電が弾ける",
+    "雷紋": "帯電の紋章。濡れ星との共鳴で感電が弾ける",
+    "油星": "粘つく星脂。焔種との共鳴で大炎上する",
+    "焔種": "くすぶる火種。油星との共鳴で大炎上する",
+    "星屑纏い": "星屑が纏わりつき、狙いを定めやすくなる"
+  },
+  "chain_reactions": [
+    {
+      "requires": "濡れ星",
+      "incoming": "雷紋",
+      "name": "感電",
+      "mult": 1.6,
+      "consume": true,
+      "log": "濡れた星片を伝って稲妻が弾けた!【感電】"
+    },
+    {
+      "requires": "雷紋",
+      "incoming": "濡れ星",
+      "name": "感電",
+      "mult": 1.6,
+      "consume": true,
+      "log": "帯電した体に雫が触れ、稲妻が走った!【感電】"
+    },
+    {
+      "requires": "油星",
+      "incoming": "焔種",
+      "name": "大炎上",
+      "mult": 1.8,
+      "consume": true,
+      "log": "星脂に火が移り、炎が膨れ上がった!【大炎上】"
+    },
+    {
+      "requires": "焔種",
+      "incoming": "油星",
+      "name": "大炎上",
+      "mult": 1.8,
+      "consume": true,
+      "log": "火種が星脂を呑み、炎が荒れ狂った!【大炎上】"
+    }
+  ],
+  "distortion_weaknesses": ["濡れ星", "雷紋", "油星", "焔種", "星屑纏い"]
 }
