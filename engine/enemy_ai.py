@@ -56,9 +56,13 @@ def decide(
         return None
     holder = _taunt_holder(battle, alive)
 
-    if override is not None:
-        # 知能層: AIの選択を検証してから採用する
+    if override is not None and enemy.intelligent:
+        # 知能層: AIの選択を検証してから採用する(非知能の敵はAI応答を無視=ルール層のまま)
         action_key = override.action_key if override.action_key in enemy.actions else "normal"
+        if action_key != "normal" and enemy.last_special_turn > 0:
+            # 特殊技の連発防止: ルール層と同じ周期でしか使えない
+            if battle.turn < enemy.last_special_turn + max(1, strong_attack_every):
+                action_key = "normal"
         target: Optional[Member] = None
         for m in alive:
             if m.id == override.target_id:

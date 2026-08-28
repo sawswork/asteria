@@ -208,6 +208,9 @@ def _handle_generate(
     )
     generation.install_spell(new_save, member, parsed.slot, spell)
     new_save.spell_tokens -= 1
+    pending = new_save.pending_update
+    if pending and pending.get("member_role") == parsed.member_role and pending.get("slot") == parsed.slot:
+        new_save.pending_update = None  # 生成でスロットが変わったら古い進化提案は無効化
     new_save.journal.append(f"{member.name}が新しい技「{spell['name']}」を紡いだ(旧「{old_name}」)")
 
     source_note = "" if used_ai else "\n> ⚠ AI生成が利用できなかったため、ルール層のテンプレートで代替しました。"
@@ -243,6 +246,9 @@ def _handle_update(
     member = new_save.member_by_role(parsed.member_role)
     assert member is not None
 
+    slot_index = {"アビ1": 0, "アビ2": 1, "アビ3": 2}
+    current_obj = member.ultimate if parsed.slot == "奥義" else member.abilities[slot_index[parsed.slot]]
+
     if parsed.choice == CHOICE_VIEW:
         options, budget, used_ai = generation.update_spell_options(
             new_save, world, balance, ai, member, parsed.slot, parsed.direction
@@ -250,6 +256,7 @@ def _handle_update(
         new_save.pending_update = {
             "member_role": parsed.member_role,
             "slot": parsed.slot,
+            "spell_id": current_obj.id,  # この技に対する提案(スロットが変わったら無効)
             "options": options,
             "budget": budget,
         }
@@ -278,9 +285,24 @@ def _handle_update(
             "## ⚠ 選択できる提案がありません\n\n先に同じメンバー・スロットで「提案を見る」を送信して"
             f"3案を受け取ってください。\n\n{_links(repo_slug)}"
         )
+    if pending.get("spell_id") and pending["spell_id"] != current_obj.id:
+        raise _Invalid(
+            "## ⚠ 提案が古くなっています\n\nこのスロットの技は提案の後に変わっています。"
+            f"もう一度「提案を見る」から進化案を受け取ってください。\n\n{_links(repo_slug)}"
+        )
     index = {"案1": 0, "案2": 1, "案3": 2}[parsed.choice]
     option = pending["options"][index]
-    old_name = member.ultimate.name if parsed.slot == "奥義" else member.abilities[{"アビ1": 0, "アビ2": 1, "アビ3": 2}[parsed.slot]].name
+    from .spells import spell_cost as _spell_cost  # 適用直前の最終防衛(提案が予算内であること)
+
+    is_ult = parsed.slot == "奥義"
+    if _spell_cost(int(option["spell"]["ct"]), list(option["spell"]["effects"]), balance, is_ult) > float(
+        pending.get("budget", 0)
+    ) + 1e-9:
+        raise _Invalid(
+            "## ⚠ 提案が予算を超えています\n\nもう一度「提案を見る」から進化案を受け取ってください。"
+            f"\n\n{_links(repo_slug)}"
+        )
+    old_name = current_obj.name
     generation.apply_update_option(new_save, member, parsed.slot, option)
     new_save.pending_update = None
     new_save.journal.append(f"{member.name}の「{old_name}」が「{option['spell']['name']}」へ進化した")

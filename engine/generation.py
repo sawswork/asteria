@@ -25,9 +25,9 @@ def _next_spell_id(save: Save, member: Member) -> str:
 
 def _scale_damage_spell(budget: float, ct: int, balance: dict[str, Any]) -> float:
     """予算いっぱいのdamage powerを求める(0.1刻み・上限4.0)。"""
-    sb = balance["spell_budget"]
-    discount = 1.0 - float(sb["ct_discount_per_turn"]) * min(ct, int(sb["ct_discount_max_turns"]))
-    power = budget / (float(balance["effect_costs"]["damage_per_power"]) * discount)
+    from .spells import ct_factor
+
+    power = budget / (float(balance["effect_costs"]["damage_per_power"]) * ct_factor(ct, balance))
     return max(0.3, min(4.0, int(power * 10) / 10))
 
 
@@ -85,6 +85,8 @@ def generate_spell(
         print(f"generation: spell rejected ({len(errors)} errors); falling back")
     except AiError as e:
         print(f"generation: spell ai failed ({e}); falling back")
+    except Exception as e:  # 検証中の想定外もフォールバックへ
+        print(f"generation: spell validation error ({type(e).__name__}); falling back")
     return fallback_spell(save, balance, member, incantation, is_ult), False
 
 
@@ -119,10 +121,32 @@ def update_budget(save: Save, balance: dict[str, Any], member: Member, obj: Abil
     return budget_for(save.level, member.role, balance, is_ult) + bonus
 
 
+def _shrink_effects_step(effects: list[dict[str, Any]]) -> bool:
+    """全効果の可変ノブを一段縮める。縮められるものが無ければ False。"""
+    changed = False
+    for e in effects:
+        if "power" in e and float(e["power"]) > 0.3:
+            e["power"] = max(0.3, round(float(e["power"]) * 0.95, 2))
+            changed = True
+        if "mult" in e:
+            m = float(e["mult"])
+            if e.get("tag") == "debuff":
+                if m < 0.95:
+                    e["mult"] = min(0.95, round(1 - (1 - m) * 0.95, 2))
+                    changed = True
+            elif m > 1.05:
+                e["mult"] = max(1.05, round(1 + (m - 1) * 0.95, 2))
+                changed = True
+        if e.get("tag") == "hate" and abs(float(e["amount"])) > 5:
+            e["amount"] = round(float(e["amount"]) * 0.9)
+            changed = True
+    return changed
+
+
 def fallback_update_options(
     current: dict[str, Any], budget: float, balance: dict[str, Any], is_ult: bool
 ) -> list[dict[str, Any]]:
-    """決定的な進化3案: 威力寄せ/回転率/堅実強化。"""
+    """決定的な進化3案: 威力寄せ/回転率/堅実強化。全案とも予算内を保証する。"""
     import copy
 
     def scaled(mult: float, ct_delta: int, direction: str) -> dict[str, Any]:
@@ -133,12 +157,15 @@ def fallback_update_options(
                 e["power"] = max(0.3, min(4.0, round(float(e["power"]) * mult, 2)))
             if "mult" in e and e.get("tag") == "buff":
                 e["mult"] = max(1.05, min(1.6, round(1 + (float(e["mult"]) - 1) * mult, 2)))
-        # 予算に収まるまで縮める
-        while spell_cost(spell["ct"], spell["effects"], balance, is_ult) > budget and mult > 0.5:
-            for e in spell["effects"]:
-                if "power" in e:
-                    e["power"] = max(0.3, round(float(e["power"]) * 0.95, 2))
-            mult *= 0.95
+        # 予算に収まるまで全ノブを縮める。縮め切れなければ現行の技(必ず予算内)に戻す
+        for _ in range(60):
+            if spell_cost(spell["ct"], spell["effects"], balance, is_ult) <= budget:
+                break
+            if not _shrink_effects_step(spell["effects"]):
+                spell = copy.deepcopy(current)
+                break
+        if spell_cost(spell["ct"], spell["effects"], balance, is_ult) > budget:
+            spell = copy.deepcopy(current)  # 使い込みボーナスで予算は現行コスト以上なので必ず収まる
         spell["name"] = str(current["name"])[:12] + "・改"
         return {"direction": direction, "spell": spell}
 
@@ -188,6 +215,10 @@ def update_spell_options(
         options = merged
     except AiError as e:
         print(f"generation: update ai failed ({e}); falling back")
+    except Exception as e:  # 検証中の想定外もフォールバックへ
+        print(f"generation: update validation error ({type(e).__name__}); falling back")
+        options = fallbacks
+        used_ai = False
     return options, budget, used_ai
 
 
@@ -236,12 +267,13 @@ def _stats_within_tolerance(stats: dict[str, Any], guide: dict[str, int], tolera
 
 
 def _special_within_budget(actions: dict[str, Any], save: Save, balance: dict[str, Any]) -> bool:
-    limit = budget_for(save.level, "attacker", balance, False) * float(
-        balance["enemy_scale"]["special_budget_mult"]
-    )
-    special_cost = sum(effect_cost(e, balance) for e in actions["special"]["effects"])
-    normal_cost = sum(effect_cost(e, balance) for e in actions["normal"]["effects"])
-    return special_cost <= limit and normal_cost <= budget_for(save.level, "attacker", balance, False)
+    # 効果コストは0未満にクランプして合算する(弱いバフ等で強効果のコストを相殺させない)
+    def action_cost(action: dict[str, Any]) -> float:
+        return sum(max(0.0, effect_cost(e, balance)) for e in action["effects"])
+
+    normal_limit = budget_for(save.level, "attacker", balance, False)
+    special_limit = normal_limit * float(balance["enemy_scale"]["special_budget_mult"])
+    return action_cost(actions["special"]) <= special_limit and action_cost(actions["normal"]) <= normal_limit
 
 
 def fallback_enemy(save: Save, world: dict[str, Any], balance: dict[str, Any], rng: Rng, tier: str) -> tuple[Enemy, str]:
@@ -315,6 +347,8 @@ def generate_enemy(
         print("generation: enemy rejected (stats/budget out of bounds); falling back")
     except AiError as e:
         print(f"generation: enemy ai failed ({e}); falling back")
+    except Exception as e:  # 検証中の想定外(欠落フィールド等)もフォールバックへ(ゲームを止めない)
+        print(f"generation: enemy validation error ({type(e).__name__}); falling back")
     enemy, intro = fallback_enemy(save, world, balance, rng, tier)
     return enemy, intro, False
 

@@ -197,7 +197,11 @@ def write_save(save: Save, save_dir: str | Path) -> None:
         for i, key in enumerate(_SLOT_KEYS):
             _write_json(_spell_dict("ability", m.id, m.abilities[i]), root / "spells" / f"{m.abilities[i].id}.json")
         _write_json(_spell_dict("ultimate", m.id, m.ultimate), root / "spells" / f"{m.ultimate.id}.json")
-    journal_md = "# 旅の記憶\n\n" + "\n".join(f"- {line}" for line in save.journal) + "\n"
+    journal_md = (
+        "# 旅の記憶\n\n"
+        + "\n".join(f"- {line.replace(chr(10), ' ')}" for line in save.journal)  # 1記録=必ず1行
+        + "\n"
+    )
     _write_text(journal_md, root / "log.md")
 
 

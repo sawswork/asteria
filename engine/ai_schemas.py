@@ -31,6 +31,67 @@ SPELL_UPDATE_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+# 敵行動の効果はタグ毎に必須フィールドと数値範囲を固定する(プレイヤー側と同じ方式)。
+# buff/debuff の mult 範囲は重ならないように分ける(負コストで予算を相殺させない)
+_ENEMY_EFFECT_SCHEMAS: list[dict[str, Any]] = [
+    {
+        "type": "object",
+        "properties": {
+            "tag": {"const": "damage"},
+            "power": {"type": "number", "minimum": 0.3, "maximum": 2.5},
+            "hits": {"type": "integer", "minimum": 1, "maximum": 3},
+            "target": {"const": "enemy"},
+        },
+        "required": ["tag", "power", "target"],
+        "additionalProperties": False,
+    },
+    {
+        "type": "object",
+        "properties": {
+            "tag": {"const": "dot"},
+            "power": {"type": "number", "minimum": 0.2, "maximum": 1.2},
+            "turns": {"type": "integer", "minimum": 1, "maximum": 3},
+            "target": {"const": "enemy"},
+        },
+        "required": ["tag", "power", "turns", "target"],
+        "additionalProperties": False,
+    },
+    {
+        "type": "object",
+        "properties": {
+            "tag": {"const": "debuff"},
+            "stat": {"enum": ["atk", "def", "agi"]},
+            "mult": {"type": "number", "minimum": 0.6, "maximum": 0.95},
+            "turns": {"type": "integer", "minimum": 1, "maximum": 3},
+            "target": {"const": "enemy"},
+        },
+        "required": ["tag", "stat", "mult", "turns", "target"],
+        "additionalProperties": False,
+    },
+    {
+        "type": "object",
+        "properties": {
+            "tag": {"const": "stun"},
+            "turns": {"type": "integer", "minimum": 1, "maximum": 1},
+            "target": {"const": "enemy"},
+        },
+        "required": ["tag", "turns", "target"],
+        "additionalProperties": False,
+    },
+    {
+        "type": "object",
+        "properties": {
+            "tag": {"const": "buff"},
+            "stat": {"enum": ["atk", "def", "agi"]},
+            "mult": {"type": "number", "minimum": 1.05, "maximum": 1.5},
+            "turns": {"type": "integer", "minimum": 1, "maximum": 3},
+            "target": {"const": "self"},
+        },
+        "required": ["tag", "stat", "mult", "turns", "target"],
+        "additionalProperties": False,
+    },
+]
+
 _ENEMY_ACTION_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -39,20 +100,7 @@ _ENEMY_ACTION_SCHEMA: dict[str, Any] = {
             "type": "array",
             "minItems": 1,
             "maxItems": 2,
-            "items": {
-                "type": "object",
-                "properties": {
-                    "tag": {"enum": ["damage", "dot", "debuff", "stun", "buff"]},
-                    "power": {"type": "number", "minimum": 0.3, "maximum": 2.5},
-                    "hits": {"type": "integer", "minimum": 1, "maximum": 3},
-                    "stat": {"enum": ["atk", "def", "agi"]},
-                    "mult": {"type": "number", "minimum": 0.5, "maximum": 1.6},
-                    "turns": {"type": "integer", "minimum": 1, "maximum": 3},
-                    "target": {"enum": ["enemy", "self"]},
-                },
-                "required": ["tag", "target"],
-                "additionalProperties": False,
-            },
+            "items": {"oneOf": _ENEMY_EFFECT_SCHEMAS},
         },
     },
     "required": ["name", "effects"],

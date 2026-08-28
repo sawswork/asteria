@@ -71,7 +71,7 @@ def _sections(
     free_text = "\n".join(free_lines).strip() if free_lines is not None else ""
     if free_text == NO_RESPONSE:
         free_text = ""
-    return sections, free_text
+    return sections, free_text[:500]  # AIプロンプトへ渡す自由記述は長さを制限する
 
 
 # ---- ターン入力 ----------------------------------------------------------

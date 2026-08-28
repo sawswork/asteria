@@ -461,6 +461,8 @@ def _enemy_act(ctx: _Ctx, enemy: Enemy) -> None:
     if target is None or not target.alive:
         return
     action = enemy.actions[decision.action_key]
+    if decision.action_key != "normal":
+        enemy.last_special_turn = ctx.battle.turn  # 特殊技の使用ターンを記録(連発防止)
     if decision.line:
         _log(ctx, f"{enemy.name}「{decision.line}」")
     if decision.lock_forced:
@@ -548,7 +550,8 @@ def _apply_victory_progression(ctx: _Ctx) -> None:
             m.atk += int(growth.get("atk", 0))
             m.df += int(growth.get("def", 0))
             m.agi += int(growth.get("agi", 0))
-            m.hp = min(m.max_hp, m.hp + int(growth.get("max_hp", 0)))
+            if m.hp > 0:  # 戦闘不能者はレベルアップでは蘇生しない
+                m.hp = min(m.max_hp, m.hp + int(growth.get("max_hp", 0)))
         _log(ctx, f"⭐ レベルアップ! パーティはLv{save.level}になった! 技生成権+1(所持{save.spell_tokens})")
         save.journal.append(f"パーティがLv{save.level}に到達")
 

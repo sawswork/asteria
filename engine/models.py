@@ -218,6 +218,7 @@ class Enemy:
     tier: str = "standard"  # minion | standard | elite | boss
     intelligent: bool = False  # True=知能層(AI判断)、False=ルール層
     xp: int = 0
+    last_special_turn: int = 0  # 特殊技を最後に使ったターン(知能層の連発防止)
 
     @property
     def alive(self) -> bool:
@@ -259,6 +260,7 @@ class Enemy:
             "tier": self.tier,
             "intelligent": self.intelligent,
             "xp": self.xp,
+            "last_special_turn": self.last_special_turn,
         }
 
     @staticmethod
@@ -282,6 +284,7 @@ class Enemy:
             tier=str(d.get("tier", "standard")),
             intelligent=bool(d.get("intelligent", False)),
             xp=int(d.get("xp", 0)),
+            last_special_turn=int(d.get("last_special_turn", 0)),
         )
 
 

@@ -50,8 +50,8 @@
     "per_level": 4,
     "role_coeff": {"attacker": 1.05, "support": 1.0, "tank": 1.0, "healer": 1.0},
     "ult_mult": 3.0,
-    "ct_discount_per_turn": 0.06,
-    "ct_discount_max_turns": 5
+    "ct_reference": 2,
+    "ct_exponent": 0.8
   },
   "effect_costs": {
     "damage_per_power": 10,

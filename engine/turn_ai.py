@@ -31,12 +31,16 @@ def compute_enemy_overrides(
     except AiError as e:
         print(f"turn_ai: fallback to rule layer ({e})")
         return {}, []
+    intelligent_ids = {e.id for e in battle.enemies if e.alive and e.intelligent}
     overrides: dict[str, EnemyDecision] = {}
     for cmd in resp.get("enemy_commands", []):
+        enemy_id = str(cmd["enemy_id"])
+        if enemy_id not in intelligent_ids:
+            continue  # 知能層でない/存在しない敵のIDは無視(ルール層の敵は乗っ取れない)
         member = save.member_by_role(str(cmd["target_role"]))
         if member is None:
             continue
-        overrides[str(cmd["enemy_id"])] = EnemyDecision(
+        overrides[enemy_id] = EnemyDecision(
             action_key=str(cmd["action_key"]),
             target_id=member.id,
             line=str(cmd.get("line", ""))[:60],

@@ -176,14 +176,24 @@ def effect_cost(effect: dict[str, Any], balance: dict[str, Any]) -> float:
     return float("inf")
 
 
+def ct_factor(ct: int, balance: dict[str, Any]) -> float:
+    """使用頻度によるコスト係数。CTが短い=手数が多いほど高くつく。
+
+    factor = (ct_reference / ct) ^ ct_exponent。基準CT(2)で1.0、CT1は割増、CT3以上は割引。
+    戦闘のCT意味論(使用からctターン周期で使用可)と対応した「毎ターン火力」の価格付け。
+    """
+    sb = balance["spell_budget"]
+    ref = float(sb.get("ct_reference", 2))
+    exp = float(sb.get("ct_exponent", 0.8))
+    return (ref / max(1, int(ct))) ** exp
+
+
 def spell_cost(ct: int, effects: list[dict[str, Any]], balance: dict[str, Any], is_ult: bool) -> float:
-    """技全体のコスト(CT割引後)。奥義はCT無しなので割引もない。"""
+    """技全体のコスト(CT頻度係数込み)。奥義はゲージ制なので係数なし。"""
     total = sum(effect_cost(e, balance) for e in effects)
     if is_ult:
         return total
-    sb = balance["spell_budget"]
-    ct_eff = min(int(ct), int(sb["ct_discount_max_turns"]))
-    return total * (1.0 - float(sb["ct_discount_per_turn"]) * ct_eff)
+    return total * ct_factor(ct, balance)
 
 
 def budget_for(level: int, role: str, balance: dict[str, Any], is_ult: bool) -> float:
@@ -212,6 +222,8 @@ def validate_spell(
                 return [f"schema: missing {key}"]
     if is_ult and int(spell["ct"]) != 0:
         errors.append("奥義にCTは設定できません(ゲージ制)")
+    if not is_ult and int(spell["ct"]) < 1:
+        errors.append("アビリティのCTは1以上(毎ターン無制限の技は作れません)")
     cost = spell_cost(int(spell["ct"]), list(spell["effects"]), balance, is_ult)
     budget = budget_for(level, role, balance, is_ult)
     if cost > budget + 1e-9:

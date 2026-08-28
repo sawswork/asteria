@@ -22,7 +22,7 @@ jobs:
         startsWith(github.event.issue.title, '[GENERATE]') ||
         startsWith(github.event.issue.title, '[UPDATE]')))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20  # AI呼び出しの最悪ケース(3呼び出し×3試行×60秒)+セットアップに余裕を持たせる
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,7 +41,8 @@ jobs:
           HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
         run: |
           if [ "$HAS_TOKEN" = "true" ]; then
-            npm install -g @anthropic-ai/claude-code
+            # インストール失敗でもターン処理は止めない(claude不在はルール層フォールバックになる)
+            npm install -g @anthropic-ai/claude-code || echo "claude CLIのインストールに失敗: ルール層で続行"
           else
             echo "CLAUDE_CODE_OAUTH_TOKEN 未設定: AI生成はルール層フォールバックで動作します"
           fi

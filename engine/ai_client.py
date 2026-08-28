@@ -27,7 +27,7 @@ except ImportError:
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "models": {"turn": "claude-haiku-4-5-20251001", "generation": "claude-sonnet-5"},
-    "timeout_seconds": 120,
+    "timeout_seconds": 60,
     "max_retries": 2,
 }
 
@@ -37,27 +37,32 @@ class AiError(RuntimeError):
 
 
 def _extract_json(text: str) -> dict[str, Any]:
-    """テキストから最初のJSONオブジェクトを取り出す(```json フェンス対応)。"""
+    """テキストから最初のJSONオブジェクトを取り出す。
+
+    全文がJSONならそのまま。そうでなければ各 "{" 位置から raw_decode を試す
+    (前置きの文章・コードフェンス・文字列内のバッククォート等に頑健)。
+    """
     s = text.strip()
-    if "```" in s:
-        for part in s.split("```"):
-            part = part.strip()
-            if part.startswith("json"):
-                part = part[4:].strip()
-            if part.startswith("{"):
-                s = part
-                break
-    start = s.find("{")
-    end = s.rfind("}")
-    if start < 0 or end <= start:
-        raise AiError("応答にJSONオブジェクトが見つからない")
     try:
-        obj = json.loads(s[start : end + 1])
-    except json.JSONDecodeError as e:
-        raise AiError(f"JSONパース失敗: {e.msg}") from e
-    if not isinstance(obj, dict):
-        raise AiError("応答のJSONがオブジェクトではない")
-    return obj
+        obj = json.loads(s)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+    decoder = json.JSONDecoder()
+    idx = 0
+    while True:
+        start = s.find("{", idx)
+        if start < 0:
+            break
+        try:
+            obj, _end = decoder.raw_decode(s[start:])
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+        idx = start + 1
+    raise AiError("応答にJSONオブジェクトが見つからない")
 
 
 class AiClient:
@@ -97,14 +102,27 @@ class AiClient:
 
     # ---- 実呼び出し -------------------------------------------------------
 
+    # サブプロセスに渡す環境は最小限(GITHUB_TOKEN等のSecretsをAI実行系に渡さない)
+    _ENV_PASSTHROUGH = ("PATH", "HOME", "TMPDIR", "TERM", "LANG", "LC_ALL", "USER", "SHELL",
+                        "CLAUDE_CODE_OAUTH_TOKEN", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY",
+                        "SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS")
+
     def _invoke_cli(self, prompt: str, purpose: str) -> str:
         if not os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
             raise AiError("CLAUDE_CODE_OAUTH_TOKEN が未設定")
         model = str(self.config["models"].get(purpose, self.config["models"]["turn"]))
-        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+        env = {k: os.environ[k] for k in self._ENV_PASSTHROUGH if k in os.environ}
         try:
             result = subprocess.run(
-                ["claude", "-p", prompt, "--output-format", "json", "--model", model],
+                [
+                    "claude", "-p", prompt,
+                    "--output-format", "json",
+                    "--model", model,
+                    # 1往復のテキスト生成のみ。ツールは全て禁止(プロンプト注入からの防御)
+                    "--max-turns", "1",
+                    "--disallowedTools",
+                    "Bash,Edit,Write,Read,Glob,Grep,WebFetch,WebSearch,Task,NotebookEdit",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=float(self.config["timeout_seconds"]),
@@ -120,6 +138,8 @@ class AiClient:
             envelope = json.loads(result.stdout)
         except json.JSONDecodeError as e:
             raise AiError("claude CLI の出力がJSONではない") from e
+        if envelope.get("is_error"):
+            raise AiError("claude CLI がエラー応答を返した")
         text = envelope.get("result")
         if not isinstance(text, str) or not text:
             raise AiError("claude CLI 応答に result がない")
