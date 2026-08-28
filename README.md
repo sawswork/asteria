@@ -4,10 +4,12 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-🏆 直前の戦い「星屑の亡霊との戦い」に**勝利**! 次のターン送信で新しい戦いが始まる。
+⚔️ 戦闘中: **星屑の亡霊との戦い**(ターン2)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード](assets/board.svg?v=i23-a0)
+![戦闘シーン](assets/scene.svg?v=i24-a0)
+
+![戦況ボード](assets/board.svg?v=i24-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド

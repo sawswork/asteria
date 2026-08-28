@@ -3,21 +3,21 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 154
+    "counter": 164
   },
   "battle": {
-    "active": false,
+    "active": true,
     "name": "星屑の亡霊との戦い",
-    "turn": 4,
+    "turn": 2,
     "enemies": [
       {
-        "id": "enemy_gen2",
+        "id": "enemy_gen3",
         "name": "星屑の亡霊",
         "title": "揺らめく残光",
-        "max_hp": 240,
-        "hp": 0,
-        "atk": 14,
-        "def": 10,
+        "max_hp": 324,
+        "hp": 305,
+        "atk": 19,
+        "def": 13,
         "agi": 11,
         "actions": {
           "normal": {
@@ -47,26 +47,25 @@
         "dots": [],
         "cc_resist": {},
         "personality": "臆病",
-        "tier": "standard",
+        "tier": "elite",
         "intelligent": true,
-        "xp": 100,
+        "xp": 160,
         "last_special_turn": 0
       }
     ],
-    "result": "victory",
-    "taunt_holder_id": null,
-    "taunt_turns_left": 0,
+    "result": null,
+    "taunt_holder_id": "gante",
+    "taunt_turns_left": 1,
     "recent_log": [
-      "星屑の亡霊の冷気の爪! ソラに9ダメージ!",
-      "ガンテの攻撃! 星屑の亡霊に9ダメージ!",
-      "(亡霊の刃がソラへ鋭く迫る。)",
-      "—— ターン4 ——",
-      "ソラの星技「星穿ち」! 星屑の亡霊に83ダメージ!",
-      "星屑の亡霊を撃破!",
-      "勝利! 「星屑の亡霊との戦い」を制した!",
-      "経験値100を獲得!(累計100)",
-      "(星屑の亡霊が怯えながらも、絶望的な計算に辿り着く。)",
-      "(瀕死の身で、長期戦を拒否する選択。ミオを狙う。)"
+      "崩れた星片の陰から、青白い残光がにじみ出た。",
+      "—— ターン1 ——",
+      "ソラの攻撃! 星屑の亡霊に12ダメージ!",
+      "リュノの攻撃! 星屑の亡霊に4ダメージ!",
+      "星屑の亡霊「ぐ…近づくな！」",
+      "星屑の亡霊の冷気の爪! ソラに15ダメージ!",
+      "ミオの攻撃! 星屑の亡霊に3ダメージ!",
+      "ガンテの星技「挑発の雄叫び」! 敵の狙いを2ターンの間、自分に固定した!",
+      "(星屑の亡霊は震える手で前へ進む。臆病さと怒りが混在した目が、ソラを捉える。)"
     ],
     "scanned": []
   },
@@ -90,12 +89,13 @@
     20,
     21,
     22,
-    23
+    23,
+    24
   ],
   "stats": {
     "victories": 3,
     "spells_generated": 2,
-    "enemies_generated": 2,
+    "enemies_generated": 3,
     "recruits": 1
   },
   "pending_update": null
