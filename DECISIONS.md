@@ -31,3 +31,10 @@
 - 2026-08-27: [レビュー反映] 通常攻撃倍率(damage.normal_attack_power)と回復下限(heal.min_heal)を balance.json へ一元化
 - 2026-08-27: 奥義ゲージは戦闘間で持ち越す(明文化。start_battle はHP/CT/バフ/ヘイトのみリセット)
 - 2026-08-28: M1実機E2E完了(8ターンで勝利・不正手不消費・連投健全)。v0.1-m1タグ付与。M2の実機AI受入には CLAUDE_CODE_OAUTH_TOKEN のSecrets設定が必要(ユーザー作業)
+- 2026-08-28: [M2] レベルはパーティ共有1本(適正Lv概念と予算式を単純化)。勝利でXP獲得、レベルアップ毎に技生成権(spell_tokens)+1
+- 2026-08-28: [M2] 技予算 = (base + per_level×(Lv-1)) × role係数。効果コスト表・CT割引(1-0.06×ct)・奥義は別枠(×3.0)を balance.json に定義。M1の固定16技はLv1予算に収まるよう係数を較正(フェアネスの基準)
+- 2026-08-28: [M2] 効果タグ追加: debuff/stun(ボス耐性段階制: 同一CC毎に効果ターン-1)/dot(詠唱時スナップショット・ターン終了時に発火)/shield(被ダメを先に吸収)/scan(敵ステ・ヘイト表を開示しボードに表示)/dispel(敵バフ解除)。ヘイト操作は負値も許可
+- 2026-08-28: [M2] セーブスキーマv2: state.json(乱数・戦闘・処理済みIssue・統計)/player.json(レベル・XP・生成権・ロスター)/party/1人1ファイル(スロット=技ID参照+CT状態)/spells/1技1ファイル(定義・使用回数・撃破数・更新履歴)/enemies/(生成敵)/log.md(旅の記憶=AIプロンプト同梱用)。v1からの自動移行を実装
+- 2026-08-28: [M2] 予算カーブ・enemy_scaleも balance.json に置く(「バランス係数はbalance.jsonに一元化」を優先。world.jsonは名称・世界観・図鑑のみ)
+- 2026-08-28: [M2] AIモデルconfigは config/ai.json: turn=claude-haiku-4-5-20251001(軽量)/ generation=claude-sonnet-5(上位)。claude CLI の --model に渡す
+- 2026-08-28: [M2] タグpushはセッション認証で不可のため .github/workflows/tag.yml(workflow_dispatch)でGITHUB_TOKENが打つ
