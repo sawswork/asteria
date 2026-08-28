@@ -135,3 +135,22 @@ def test_book_does_not_change_the_save(tmp_path):
     assert after.battle.turn == before.battle.turn
     assert after.spell_tokens == before.spell_tokens
     assert after.battle.enemies[0].hp == before.battle.enemies[0].hp
+
+
+def test_frame_is_kept_until_the_table_of_contents_changes(tmp_path):
+    """章立てが変わらない限り、書名と序文は据え置く(編纂のたびに題が変わらない)。"""
+    root = make_root(tmp_path)
+    gh = FakeGhApi()
+    _play(root, gh, 1)
+    process_issue(make_issue(2, BOOK_BODY, title="[BOOK] 旅の書"), REPO, str(root), do_git=False, gh=gh, ai=_ai())
+    frame_path = root / book.FRAME_PATH
+    first = frame_path.read_text(encoding="utf-8")
+    process_issue(make_issue(3, BOOK_BODY, title="[BOOK] 旅の書"), REPO, str(root), do_git=False, gh=gh, ai=_ai())
+    assert frame_path.read_text(encoding="utf-8") == first  # 作り直されていない
+
+
+def test_frame_staleness_tracks_the_chapter_titles():
+    stamped = book.frame_with_stamp({"title": "旅の書"}, ["第1章"])
+    assert not book.frame_is_stale(stamped, ["第1章"])
+    assert book.frame_is_stale(stamped, ["第1章", "第2章"])  # 章が増えたら編み直す
+    assert book.frame_is_stale({}, ["第1章"])

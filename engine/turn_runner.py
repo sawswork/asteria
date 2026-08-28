@@ -194,18 +194,32 @@ def _compile_book(
             chapters.append(book_mod.raw_chapter(f"第{index}章", source))
             titles.append(f"第{index}章")
 
-    frame = {"title": f"{world.get('world_name', '')}の旅の書".strip(), "preface": "", "epilogue": ""}
+    frame_path = root_path / book_mod.FRAME_PATH
+    frame: dict[str, Any] = {}
     try:
-        frame = dict(
-            ai.call(
-                "book_frame",
-                prompts.build_book_frame_prompt(world, save, titles),
-                ai_schemas.BOOK_FRAME_SCHEMA,
-                purpose="generation",
+        frame = load_json(frame_path) if frame_path.exists() else {}
+    except (OSError, json.JSONDecodeError):
+        frame = {}
+    if book_mod.frame_is_stale(frame, titles):
+        try:
+            frame = book_mod.frame_with_stamp(
+                dict(
+                    ai.call(
+                        "book_frame",
+                        prompts.build_book_frame_prompt(world, save, titles),
+                        ai_schemas.BOOK_FRAME_SCHEMA,
+                        purpose="generation",
+                    )
+                ),
+                titles,
             )
-        )
-    except (AiError, KeyError) as e:
-        print(f"book: frame not compiled ({type(e).__name__}); using a plain title")
+            frame_path.parent.mkdir(parents=True, exist_ok=True)
+            frame_path.write_text(
+                json.dumps(frame, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            )
+        except (AiError, KeyError, OSError) as e:
+            print(f"book: frame not compiled ({type(e).__name__}); using a plain title")
+            frame = {"title": f"{world.get('world_name', '')}の旅の書".strip(), "preface": "", "epilogue": ""}
 
     spells = _grimoire(root_path)
     text = book_mod.assemble(frame, chapters, spells, save.journal)

@@ -20,6 +20,7 @@ from typing import Any
 BOOK_DIR = "book"
 NARRATED_DIR = "book/chapters"
 BOOK_PATH = "book/journey.md"
+FRAME_PATH = "book/frame.json"
 _SRC_SHA = re.compile(r"<!-- src-sha:\s*([0-9a-f]+)\s*-->")
 
 
@@ -54,6 +55,23 @@ def trim_source(text: str, limit: int) -> str:
 def raw_chapter(title: str, source: str) -> str:
     """未編纂の章(AIが間に合わなかった分)。記録そのものを載せて欠落を作らない。"""
     return f"## {title}\n\n*(この章はまだ編纂されていません。記録のまま収めます)*\n\n{source.strip()}\n"
+
+
+def frame_is_stale(frame: dict[str, Any], chapter_titles: list[str]) -> bool:
+    """表題・序文・終章を作り直すべきか。
+
+    章立てが変わっていないなら据え置く。編纂のたびに書名が変わると、
+    記念に残す1冊としては落ち着かないため。
+    """
+    if not frame.get("title"):
+        return True
+    return str(frame.get("toc_sha", "")) != source_sha("\n".join(chapter_titles))
+
+
+def frame_with_stamp(frame: dict[str, Any], chapter_titles: list[str]) -> dict[str, Any]:
+    stamped = dict(frame)
+    stamped["toc_sha"] = source_sha("\n".join(chapter_titles))
+    return stamped
 
 
 def assemble(
