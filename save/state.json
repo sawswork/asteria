@@ -123,11 +123,12 @@
     23,
     24,
     26,
-    27
+    27,
+    28
   ],
   "stats": {
     "victories": 4,
-    "spells_generated": 2,
+    "spells_generated": 3,
     "enemies_generated": 3,
     "recruits": 1
   },

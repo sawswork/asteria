@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "id": "ryuno_gen3",
+  "kind": "ability",
+  "owner": "ryuno",
+  "name": "誓ひの濡雷閃",
+  "effects": [
+    {
+      "tag": "field",
+      "name": "濡れ星",
+      "turns": 2,
+      "target": "enemy"
+    },
+    {
+      "tag": "damage",
+      "power": 1.8,
+      "hits": 1,
+      "target": "enemy",
+      "field": "雷紋"
+    }
+  ],
+  "desc": "濡れ星を纏わせた後、雷紋を刻む一撃を放つ。感電が弾け大ダメージ。この誓いは一戦につき一度きり。",
+  "usage_count": 0,
+  "kills": 0,
+  "constraints": [
+    "once_per_battle"
+  ],
+  "ct": 3
+}
