@@ -32,6 +32,15 @@ def test_append_entry_is_idempotent_and_keeps_order():
     assert text.index("a-again") < text.index("b") < text.index("c")  # 時系列が崩れない
 
 
+def test_chapter_number_is_derived_from_record():
+    """章番号は戦績から導出する(この機能より前から続くセーブでも正しい章に落ちる)。"""
+    assert chronicle.chapter_number({}, battle_active=False) == 1  # まだ何も起きていない
+    assert chronicle.chapter_number({}, battle_active=True) == 1  # 第1戦の最中
+    mid = {"victories": 7, "defeats": 1}
+    assert chronicle.chapter_number(mid, battle_active=True) == 9  # 第9戦の最中
+    assert chronicle.chapter_number(mid, battle_active=False) == 8  # 第8戦の直後(拠点)
+
+
 def test_chapter_filename_is_sortable():
     assert chronicle.chapter_filename(1) == "chapter-001.md"
     assert chronicle.chapter_filename(12) == "chapter-012.md"

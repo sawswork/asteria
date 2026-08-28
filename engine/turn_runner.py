@@ -113,7 +113,7 @@ def _write_chronicle(
     失敗しても冒険は止めない——記録は大切だが、進行を人質に取るほどではない。
     """
     try:
-        chapter = max(1, int(save.stats.get("chapters", 1)))
+        chapter = chronicle.chapter_number(save.stats, bool(save.battle and save.battle.active))
         path = root_path / SAVE_DIR / chronicle.CHRONICLE_DIR / chronicle.chapter_filename(chapter)
         path.parent.mkdir(parents=True, exist_ok=True)
         text = path.read_text(encoding="utf-8") if path.exists() else ""
@@ -127,7 +127,7 @@ def _write_chronicle(
 def _append_chronicle_outcome(root_path: Path, save: Save, result: str, turn_no: int) -> None:
     """章の締め(勝敗)を末尾に追記する。"""
     try:
-        chapter = max(1, int(save.stats.get("chapters", 1)))
+        chapter = chronicle.chapter_number(save.stats, bool(save.battle and save.battle.active))
         path = root_path / SAVE_DIR / chronicle.CHRONICLE_DIR / chronicle.chapter_filename(chapter)
         if not path.exists():
             return
@@ -471,7 +471,7 @@ def _handle_turn(
     header = ""
     if started_new_battle and new_save.battle:
         header = chronicle.chapter_header(
-            int(new_save.stats.get("chapters", 1)),
+            chronicle.chapter_number(new_save.stats, True),
             new_save.battle.name,
             intro_note,
             new_save.battle.enemies,

@@ -21,6 +21,17 @@ CHRONICLE_DIR = "chronicle"
 MARKER = "<!-- issue:{n} -->"
 
 
+def chapter_number(stats: dict[str, Any], battle_active: bool) -> int:
+    """章番号を戦績から導出する(カウンタを別に持たない)。
+
+    - 戦闘中(第N戦)      : 決着済み N-1 戦 + 1 = N
+    - 戦闘後(第N戦が終了): 決着済み N 戦 + 0 = N —— 直後の拠点での出来事は同じ章に入る
+    導出なので、この機能より前から続いているセーブでも正しい章に落ちる。
+    """
+    finished = int(stats.get("victories", 0)) + int(stats.get("defeats", 0))
+    return max(1, finished + (1 if battle_active else 0))
+
+
 def chapter_filename(chapter: int) -> str:
     return f"chapter-{max(1, int(chapter)):03d}.md"
 
