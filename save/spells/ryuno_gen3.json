@@ -20,7 +20,7 @@
     }
   ],
   "desc": "濡れ星を纏わせた後、雷紋を刻む一撃を放つ。感電が弾け大ダメージ。この誓いは一戦につき一度きり。",
-  "usage_count": 0,
+  "usage_count": 1,
   "kills": 0,
   "constraints": [
     "once_per_battle"

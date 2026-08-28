@@ -3,25 +3,14 @@
   "role": "support",
   "name": "リュノ",
   "title": "星詠み",
-  "max_hp": 100,
-  "hp": 87,
-  "atk": 12,
-  "def": 11,
-  "agi": 14,
-  "ult_gauge": 25,
-  "hate": 59.0,
-  "buffs": [
-    {
-      "stat": "atk",
-      "mult": 1.35,
-      "turns_left": 1
-    },
-    {
-      "stat": "def",
-      "mult": 1.25,
-      "turns_left": 1
-    }
-  ],
+  "max_hp": 106,
+  "hp": 106,
+  "atk": 13,
+  "def": 12,
+  "agi": 15,
+  "ult_gauge": 80,
+  "hate": 55.0,
+  "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
   "dots": [],
@@ -35,7 +24,7 @@
   "slot_state": {
     "ability1": {
       "ready_in": 0,
-      "battle_uses": 0
+      "battle_uses": 1
     },
     "ability2": {
       "ready_in": 0,
@@ -43,10 +32,10 @@
     },
     "ability3": {
       "ready_in": 0,
-      "battle_uses": 5
+      "battle_uses": 2
     },
     "ultimate": {
-      "battle_uses": 1
+      "battle_uses": 0
     }
   }
 }

@@ -3,25 +3,25 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 234
+    "counter": 270
   },
   "battle": {
     "active": false,
-    "name": "星屑の亡霊との戦い",
-    "turn": 8,
+    "name": "蝕まれた岩甲獣との戦い",
+    "turn": 4,
     "enemies": [
       {
-        "id": "enemy_gen3",
-        "name": "星屑の亡霊",
-        "title": "揺らめく残光",
-        "max_hp": 324,
+        "id": "enemy_gen4",
+        "name": "蝕まれた岩甲獣",
+        "title": "軋む装甲",
+        "max_hp": 280,
         "hp": 0,
-        "atk": 25,
-        "def": 13,
-        "agi": 11,
+        "atk": 16,
+        "def": 11,
+        "agi": 12,
         "actions": {
           "normal": {
-            "name": "冷気の爪",
+            "name": "突進",
             "effects": [
               {
                 "tag": "damage",
@@ -31,21 +31,18 @@
             ]
           },
           "special": {
-            "name": "星喰の咆哮",
+            "name": "岩甲の粉砕",
             "effects": [
               {
                 "tag": "damage",
-                "power": 1.5,
+                "power": 1.2,
                 "target": "enemy"
-              }
-            ]
-          },
-          "evolved": {
-            "name": "覚醒の一撃",
-            "effects": [
+              },
               {
-                "tag": "damage",
-                "power": 1.8,
+                "tag": "debuff",
+                "stat": "def",
+                "mult": 0.85,
+                "turns": 2,
                 "target": "enemy"
               }
             ]
@@ -56,45 +53,33 @@
         "stunned_turns": 0,
         "dots": [],
         "cc_resist": {},
-        "personality": "臆病",
-        "tier": "elite",
+        "personality": "凶暴",
+        "tier": "standard",
         "intelligent": true,
-        "xp": 160,
-        "last_special_turn": 7,
+        "xp": 100,
+        "last_special_turn": 3,
         "field_tags": [],
-        "weaknesses": [
-          {
-            "field": "油星",
-            "mult": 1.5
-          }
-        ],
-        "evolutions": [
-          {
-            "name": "本能の覚醒",
-            "reason": "hp",
-            "turn": 5,
-            "desc": "追い詰められた本能が、力を臨界まで暴走させた"
-          }
-        ],
-        "evolutions_used": 1,
+        "weaknesses": [],
+        "evolutions": [],
+        "evolutions_used": 0,
         "evolution_pending": null,
-        "hp_evolution_triggered": true
+        "hp_evolution_triggered": false
       }
     ],
     "result": "victory",
     "taunt_holder_id": null,
     "taunt_turns_left": 0,
     "recent_log": [
-      "リュノの攻撃! 星屑の亡霊に8ダメージ!",
-      "星屑の亡霊「…終わりだ…」",
-      "星屑の亡霊の冷気の爪! ミオに18ダメージ!",
-      "ミオの攻撃! 星屑の亡霊に6ダメージ!",
-      "ガンテの攻撃! 星屑の亡霊に7ダメージ!",
-      "星屑の亡霊を撃破!",
-      "勝利! 「星屑の亡霊との戦い」を制した!",
-      "経験値160を獲得!(累計260)",
-      "⭐ レベルアップ! パーティはLv3になった! 技生成権+1(所持1)",
-      "(星屑の亡霊が最後の力をミオへ向ける。生き残るための必死の一撃だ。)"
+      "ガンテの星技「星盾強打」! 蝕まれた岩甲獣に7ダメージ!",
+      "ガンテは敵の注意を引いた(ヘイト+20)。",
+      "(岩甲獣が身体を低く構える。挑発に応えるかのように、全身に力を溜める——凶暴な咆哮とともに、ガンテに向けて一撃を放つ！)",
+      "—— ターン4 ——",
+      "ソラの星技「二連流星」! 蝕まれた岩甲獣に2連撃で13ダメージ!",
+      "蝕まれた岩甲獣を撃破!",
+      "勝利! 「蝕まれた岩甲獣との戦い」を制した!",
+      "経験値100を獲得!(累計225)",
+      "⭐ レベルアップ! パーティはLv4になった! 技生成権+1(所持1)",
+      "(蝕まれた岩甲獣は最後の力を振り絞った。体力僅か13、もはや絶望的な状況だ。)"
     ],
     "scanned": [],
     "resonance_used": true,
@@ -124,12 +109,13 @@
     24,
     26,
     27,
-    28
+    28,
+    29
   ],
   "stats": {
-    "victories": 4,
+    "victories": 5,
     "spells_generated": 3,
-    "enemies_generated": 3,
+    "enemies_generated": 4,
     "recruits": 1
   },
   "pending_update": null,

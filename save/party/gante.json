@@ -3,22 +3,17 @@
   "role": "tank",
   "name": "ガンテ",
   "title": "星盾騎士",
-  "max_hp": 169,
-  "hp": 163,
-  "atk": 11,
-  "def": 19,
+  "max_hp": 181,
+  "hp": 177,
+  "atk": 12,
+  "def": 21,
   "agi": 6,
-  "ult_gauge": 100,
-  "hate": 388.0,
+  "ult_gauge": 25,
+  "hate": 289.0,
   "buffs": [
     {
-      "stat": "atk",
-      "mult": 1.35,
-      "turns_left": 1
-    },
-    {
       "stat": "def",
-      "mult": 1.25,
+      "mult": 0.85,
       "turns_left": 1
     }
   ],
@@ -38,8 +33,8 @@
       "battle_uses": 0
     },
     "ability2": {
-      "ready_in": 0,
-      "battle_uses": 3
+      "ready_in": 1,
+      "battle_uses": 1
     },
     "ability3": {
       "ready_in": 0,
