@@ -3,19 +3,19 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 478
+    "counter": 499
   },
   "battle": {
-    "active": true,
+    "active": false,
     "name": "夜哭きの梟との戦い",
-    "turn": 14,
+    "turn": 19,
     "enemies": [
       {
         "id": "enemy_gen7",
         "name": "夜哭きの梟",
         "title": "静寂を裂く声",
         "max_hp": 704,
-        "hp": 422,
+        "hp": 386,
         "atk": 41,
         "def": 28,
         "agi": 12,
@@ -51,7 +51,7 @@
         "tier": "boss",
         "intelligent": true,
         "xp": 320,
-        "last_special_turn": 9,
+        "last_special_turn": 18,
         "field_tags": [],
         "weaknesses": [],
         "evolutions": [],
@@ -60,20 +60,20 @@
         "hp_evolution_triggered": false
       }
     ],
-    "result": null,
+    "result": "defeat",
     "taunt_holder_id": null,
     "taunt_turns_left": 0,
     "recent_log": [
-      "ガンテは力を溜めた(ゲージ+30)。",
-      "🕳 禁忌の詠唱は続く(打破まであと90ダメージ/猶予1ターン)",
-      "(梟の目が冷たく光った。ヘイトを無視し、陣形の隙—瀕死の剣士に狙いを定める。)",
-      "—— ターン13 ——",
-      "リュノは力を溜めた(ゲージ+30)。",
-      "夜哭きの梟「後方支援を潰すのが理に適う」",
-      "夜哭きの梟の風切り爪! リュノに41ダメージ!",
-      "ガンテは力を溜めた(ゲージ+30)。",
-      "🕳 詠唱が完成へ向かう——PRが閉じられていなければ、星の理が歪む……",
-      "(夜哭きの梟の眼光が鋭く、後方へ矛先を転じた。)"
+      "ガンテは敵の注意を引いた(ヘイト+20)。",
+      "ガンテは継続ダメージで25を受けた!",
+      "(夜哭きの梟の眼が狂ったように赤く輝く。最後の獲物へ、狡猾な殺意を研ぎ澄ます。)",
+      "—— ターン19 ——",
+      "夜哭きの梟「終わりだ…」",
+      "夜哭きの梟の風切り爪! ガンテに39ダメージ!",
+      "ガンテは倒れた……",
+      "全滅……パーティは拠点へ送り返された。",
+      "……夜哭きの梟は勝利の咆哮を上げた。奴はもう、ただの敵ではない。",
+      "(同胞は次々と倒れ、最後に残されたのは傷だらけのタンク一人。夜哭きの梟は嘴を鳴らし、狡猾な光を瞳に宿した。)"
     ],
     "scanned": [],
     "resonance_used": true,
@@ -122,14 +122,67 @@
     36,
     38,
     39,
-    40
+    40,
+    41
   ],
   "stats": {
     "victories": 7,
     "spells_generated": 3,
     "enemies_generated": 7,
-    "recruits": 2
+    "recruits": 2,
+    "defeats": 1
   },
   "pending_update": null,
-  "nemesis": null
+  "nemesis": {
+    "enemy": {
+      "id": "enemy_gen7",
+      "name": "夜哭きの梟",
+      "title": "静寂を裂く声",
+      "max_hp": 704,
+      "hp": 386,
+      "atk": 41,
+      "def": 28,
+      "agi": 12,
+      "actions": {
+        "normal": {
+          "name": "風切り爪",
+          "effects": [
+            {
+              "tag": "damage",
+              "power": 1.0,
+              "target": "enemy"
+            }
+          ]
+        },
+        "special": {
+          "name": "哭声",
+          "effects": [
+            {
+              "tag": "dot",
+              "power": 0.6,
+              "turns": 2,
+              "target": "enemy"
+            }
+          ]
+        }
+      },
+      "buffs": [],
+      "shield": 0,
+      "stunned_turns": 0,
+      "dots": [],
+      "cc_resist": {},
+      "personality": "狡猾",
+      "tier": "boss",
+      "intelligent": true,
+      "xp": 320,
+      "last_special_turn": 18,
+      "field_tags": [],
+      "weaknesses": [],
+      "evolutions": [],
+      "evolutions_used": 0,
+      "evolution_pending": null,
+      "hp_evolution_triggered": false
+    },
+    "battle_name": "夜哭きの梟との戦い"
+  }
 }
