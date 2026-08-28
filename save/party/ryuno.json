@@ -8,20 +8,9 @@
   "atk": 13,
   "def": 12,
   "agi": 15,
-  "ult_gauge": 0,
-  "hate": 56.0,
-  "buffs": [
-    {
-      "stat": "atk",
-      "mult": 1.35,
-      "turns_left": 1
-    },
-    {
-      "stat": "def",
-      "mult": 1.25,
-      "turns_left": 1
-    }
-  ],
+  "ult_gauge": 40,
+  "hate": 25.0,
+  "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
   "dots": [],
@@ -43,7 +32,7 @@
     },
     "ability3": {
       "ready_in": 0,
-      "battle_uses": 2
+      "battle_uses": 3
     },
     "ultimate": {
       "battle_uses": 1

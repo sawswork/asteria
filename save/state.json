@@ -3,25 +3,25 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 373
+    "counter": 448
   },
   "battle": {
-    "active": false,
-    "name": "蝕まれた岩甲獣との戦い",
-    "turn": 6,
+    "active": true,
+    "name": "夜哭きの梟との戦い",
+    "turn": 9,
     "enemies": [
       {
-        "id": "enemy_gen6",
-        "name": "蝕まれた岩甲獣",
-        "title": "軋む装甲",
-        "max_hp": 320,
-        "hp": 0,
-        "atk": 19,
-        "def": 12,
+        "id": "enemy_gen7",
+        "name": "夜哭きの梟",
+        "title": "静寂を裂く声",
+        "max_hp": 704,
+        "hp": 445,
+        "atk": 41,
+        "def": 28,
         "agi": 12,
         "actions": {
           "normal": {
-            "name": "突進",
+            "name": "風切り爪",
             "effects": [
               {
                 "tag": "damage",
@@ -31,17 +31,11 @@
             ]
           },
           "special": {
-            "name": "岩甲の粉砕",
+            "name": "哭声",
             "effects": [
               {
-                "tag": "damage",
-                "power": 1.2,
-                "target": "enemy"
-              },
-              {
-                "tag": "debuff",
-                "stat": "def",
-                "mult": 0.85,
+                "tag": "dot",
+                "power": 0.6,
                 "turns": 2,
                 "target": "enemy"
               }
@@ -53,11 +47,11 @@
         "stunned_turns": 0,
         "dots": [],
         "cc_resist": {},
-        "personality": "凶暴",
-        "tier": "standard",
+        "personality": "狡猾",
+        "tier": "boss",
         "intelligent": true,
-        "xp": 100,
-        "last_special_turn": 3,
+        "xp": 320,
+        "last_special_turn": 6,
         "field_tags": [],
         "weaknesses": [],
         "evolutions": [],
@@ -66,20 +60,20 @@
         "hp_evolution_triggered": false
       }
     ],
-    "result": "victory",
-    "taunt_holder_id": null,
-    "taunt_turns_left": 0,
+    "result": null,
+    "taunt_holder_id": "gante",
+    "taunt_turns_left": 1,
     "recent_log": [
-      "蝕まれた岩甲獣「ぐおおおお！」",
-      "蝕まれた岩甲獣の突進! ガンテに6ダメージ!",
-      "ガンテの攻撃! 蝕まれた岩甲獣に10ダメージ!",
-      "(蝕まれた岩甲獣は獰猛に吠え、ガンテに突進した。)",
-      "—— ターン6 ——",
-      "ソラの奥義《彗星烈斬》! 蝕まれた岩甲獣に87ダメージ!",
-      "蝕まれた岩甲獣を撃破!",
-      "勝利! 「蝕まれた岩甲獣との戦い」を制した!",
-      "経験値100を獲得!(累計243)",
-      "(瀕死の岩甲獣は、理性など放り出し、最高のヘイトを持つガンテへ猛然と体当たりを仕掛ける。)"
+      "(梟の鋭い眼光がミオに集中する。狡猾な獲食者は、瀕死のヒーラーという最大の脅威をよく理解している。)",
+      "—— ターン8 ——",
+      "ソラの星技「星穿ち」! 夜哭きの梟に58ダメージ!",
+      "リュノの星技「流星の矢」! 夜哭きの梟に1ダメージ!",
+      "夜哭きの梟「矢の射手よ、その腕も俺を傷つけられまい」",
+      "夜哭きの梟の風切り爪! ソラに33ダメージ!",
+      "ガンテの奥義《不動の星砦》! ガンテの防御が1.6倍(2ターン)!",
+      "ガンテの奥義《不動の星砦》! 敵の狙いを2ターンの間、自分に固定した!",
+      "ガンテは敵の注意を引いた(ヘイト+40)。",
+      "(夜哭きの梟は狙いを定める。既に癒し手は落ち、今は火力を削るのが道理。)"
     ],
     "scanned": [],
     "resonance_used": true,
@@ -115,12 +109,13 @@
     31,
     32,
     33,
-    34
+    34,
+    35
   ],
   "stats": {
     "victories": 7,
     "spells_generated": 3,
-    "enemies_generated": 6,
+    "enemies_generated": 7,
     "recruits": 2
   },
   "pending_update": null,
