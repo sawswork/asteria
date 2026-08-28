@@ -490,3 +490,16 @@ def test_resonance_amplifies_only_the_oldest_spell(battle_save, world, balance):
     dmg = [int(l.split("に")[-1].replace("ダメージ!", "")) for l in r1.lines if "ダメージ!" in l and "の攻撃" not in l]
     newest_hit, oldest_hit = dmg[0], dmg[1]
     assert oldest_hit > newest_hit * 1.3  # 初代技だけが現行水準まで引き上げられる
+
+
+def test_auto_commands_keep_attacking_while_one_ally_is_hurt(battle_save, balance):
+    """誰か1人が傷ついていても、回復技を持たない者は攻撃アビを選び続ける。"""
+    from engine.turn_runner import _auto_commands
+
+    _set_effect(battle_save, "attacker", 0, [{"tag": "damage", "power": 1.5, "target": "enemy"}], "攻撃技")
+    _set_effect(battle_save, "healer", 0, [{"tag": "heal", "power": 2.0, "target": "ally"}], "回復技")
+    hurt = battle_save.member_by_role("tank")
+    hurt.hp = int(hurt.max_hp * 0.4)  # 全体フラグが立つ状況
+    cmds = _auto_commands(battle_save, balance)
+    assert cmds["healer"].action == "アビ1"  # 回復役は回復へ
+    assert cmds["attacker"].action == "アビ1"  # 攻撃役は通常攻撃に落ちない

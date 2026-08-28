@@ -396,3 +396,34 @@ def test_boss_pr_attack_end_to_end(tmp_path):
     process_issue(make_issue(issue_no, body_from(all_normal())), REPO, str(root), do_git=False, gh=gh)
     assert not (root / OVERRIDE_PATH).exists()
     assert load_save(root / "save").battle.result == "victory"
+
+
+def test_full_auto_continues_after_casting_started(tmp_path):
+    """詠唱が既に始まっている戦闘では、フルオートは1ターンで止まらず走り切る。"""
+    from engine.save_io import load_save, write_save
+    from engine.turn_runner import process_issue
+    from tests.test_turn_runner import all_normal, body_from, make_issue
+
+    root = make_root(tmp_path)
+    save = load_save(root / "save")
+    save.stats["victories"] = 1
+    write_save(save, root / "save")
+    gh = FakePrGhApi()
+    process_issue(make_issue(1, body_from(all_normal())), REPO, str(root), do_git=False, gh=gh)
+    save = load_save(root / "save")
+    e = save.battle.enemies[0]
+    e.tier, e.max_hp, e.hp, e.atk = "boss", 8000, 3000, 1
+    save.battle.pr_attack = {  # 既に詠唱中
+        "status": "casting", "enemy_id": e.id, "deadline_turn": save.battle.turn + 20,
+        "damage_since": 0, "pr_number": 77, "branch": "b",
+    }
+    for m in save.party:
+        m.atk = 1
+    write_save(save, root / "save")
+    before = load_save(root / "save").battle.turn
+    process_issue(
+        make_issue(2, body_from(all_normal(), free_text="フルオート 5")),
+        REPO, str(root), do_git=False, gh=gh,
+    )
+    after = load_save(root / "save").battle.turn
+    assert after - before == 5  # 5ターン走り切る(1ターンで止まらない)
