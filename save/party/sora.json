@@ -8,8 +8,8 @@
   "atk": 18,
   "def": 9,
   "agi": 15,
-  "ult_gauge": 10,
-  "hate": 129.0,
+  "ult_gauge": 25,
+  "hate": 212.0,
   "buffs": [
     {
       "stat": "atk",
@@ -33,7 +33,7 @@
   },
   "slot_state": {
     "ability1": {
-      "ready_in": 0
+      "ready_in": 3
     },
     "ability2": {
       "ready_in": 0

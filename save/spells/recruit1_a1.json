@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "recruit1_a1",
+  "kind": "ability",
+  "owner": "recruit1",
+  "name": "無銘の技",
+  "effects": [
+    {
+      "tag": "damage",
+      "power": 3.3,
+      "target": "enemy"
+    }
+  ],
+  "desc": "攻撃(3.3倍)",
+  "usage_count": 0,
+  "kills": 0,
+  "ct": 2
+}

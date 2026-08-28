@@ -1,0 +1,34 @@
+{
+  "id": "recruit1",
+  "role": "attacker",
+  "name": "流れ星の旅人",
+  "title": "名もなき同行者",
+  "max_hp": 102,
+  "hp": 102,
+  "atk": 18,
+  "def": 9,
+  "agi": 15,
+  "ult_gauge": 0,
+  "hate": 5.0,
+  "buffs": [],
+  "shield": 0,
+  "stunned_turns": 0,
+  "dots": [],
+  "slots": {
+    "ability1": "recruit1_a1",
+    "ability2": "recruit1_a2",
+    "ability3": "recruit1_a3",
+    "ultimate": "recruit1_ult"
+  },
+  "slot_state": {
+    "ability1": {
+      "ready_in": 0
+    },
+    "ability2": {
+      "ready_in": 0
+    },
+    "ability3": {
+      "ready_in": 0
+    }
+  }
+}
