@@ -17,6 +17,8 @@ from .commands import ROLE_LABELS, Command
 
 NO_RESPONSE = "_No response_"
 
+VALUE_MAX = 120  # ドロップダウン値の想定長。超過分は切る(返信Markdownの肥大でAPIが落ちるのを防ぐ)
+
 FREE_TEXT_LABEL = "自由記述"
 INCANTATION_LABEL = "詠唱文"
 DIRECTION_LABEL = "方向性"
@@ -51,7 +53,7 @@ def _sections(
     def flush() -> None:
         nonlocal current, buf
         if current is not None:
-            sections.setdefault(current, "\n".join(buf).strip())  # 初出優先
+            sections.setdefault(current, "\n".join(buf).strip()[:VALUE_MAX])  # 初出優先
         current = None
         buf = []
 

@@ -73,6 +73,25 @@ GENERATED_MARKER = "assets/raw/.generated.json"  # Gemini生成素材の由来(�
 OVERRIDE_PATH = "battle_override.json"  # PR攻撃で適用される戦闘スコープのバランス上書き
 # 戦闘中の手応えだけを変えるキー。恒久的な進行(leveling / spell_budget / 出現周期など)は対象外
 OVERRIDE_ALLOWED_KEYS = ("damage", "heal", "hate", "taunt", "cc", "enemy")
+# PR攻撃のPRを作る主体。ブランチ名は予測可能なので、採用・マージ前に素性を必ず確かめる
+PR_ATTACK_AUTHORS = ("github-actions[bot]", "github-actions")
+
+
+def _is_engine_pr(gh: GhApi, number: int) -> bool:
+    """そのPRがエンジン自身の禁忌詠唱PRか(作者がbotで、変更が battle_override.json だけ)。"""
+    try:
+        info = gh.get_pull(number)
+        if info.get("author") not in PR_ATTACK_AUTHORS:
+            print(f"pr_attack: PR #{number} is not engine-authored; ignoring")
+            return False
+        files = gh.pull_changed_files(number)
+        if files != [OVERRIDE_PATH]:
+            print(f"pr_attack: PR #{number} touches unexpected files; ignoring")
+            return False
+        return True
+    except RuntimeError as e:
+        print(f"pr_attack: could not verify PR #{number} ({e})")
+        return False
 
 
 def _term(world: dict[str, Any], key: str, default: str = "") -> str:
@@ -80,7 +99,7 @@ def _term(world: dict[str, Any], key: str, default: str = "") -> str:
     return str((world.get("system_terms") or {}).get(key, default))
 
 
-def _merged_balance(root_path: Path) -> dict[str, Any]:
+def _merged_balance(root_path: Path, save: Save | None = None) -> dict[str, Any]:
     """balance.json に battle_override.json(存在時のみ)を深マージして返す。
 
     overrideはPR攻撃のマージでのみ出現し、戦闘終了時に撤去される(数値の出所は常にリポジトリ内)。
@@ -89,6 +108,13 @@ def _merged_balance(root_path: Path) -> dict[str, Any]:
     override_file = root_path / OVERRIDE_PATH
     if not override_file.exists():
         return balance
+    if save is not None:
+        # セーブ側で「詠唱が完成した」と記録されている時だけ効かせる。
+        # ファイルが置かれているだけで戦闘バランスが変わってはいけない
+        status = ((save.battle.pr_attack if save.battle else None) or {}).get("status")
+        if status != "merged":
+            print("override: present but no merged boss attack in save; ignoring")
+            return balance
     try:
         data = load_json(override_file)
     except (OSError, json.JSONDecodeError):
@@ -748,6 +774,10 @@ def _process_pr_attack(
             base = _base_branch(root_path)
             branch = f"boss-attack-{pr.get('enemy_id', 'boss')}-t{battle.turn}"
             existing = gh.find_open_pull_by_head(branch)
+            if existing and not _is_engine_pr(gh, existing):
+                # ブランチ名は予測可能。第三者が置いたPRを乗っ取らせない
+                existing = 0
+                branch = f"{branch}-r{len(battle.recent_log)}"
             if existing:  # リプレイで再入した: 既に開いたPRを引き継ぐ(2本目を作らない)
                 pr.update({"status": "casting", "pr_number": existing, "branch": branch})
                 notes.append(f"🕳 **{enemy_name}の禁忌詠唱!** PR #{existing} が既に開かれている。")
@@ -811,6 +841,11 @@ def _process_pr_attack(
                     merged = True
                 elif state.get("state") == "closed":
                     sealed = True
+                elif not _is_engine_pr(gh, int(pr["pr_number"])):
+                    # 中身がすり替わっているPRは決してマージしない(詠唱は不発として扱う)
+                    pr["status"] = "sealed"
+                    notes.append("🛡 詠唱の器は既に別物だった——マージは行われない。")
+                    return notes
                 else:
                     merged = gh.merge_pull(int(pr["pr_number"]), f"boss attack: {enemy_name}")
                     if not merged:
@@ -873,8 +908,8 @@ def process_issue(
     last_error = ""
     for attempt in range(MAX_PUSH_REPLAYS):
         # balanceはリプレイ毎に読み直す(push競合の同期でbattle_override.jsonが現れ得るため)
-        balance = _merged_balance(root_path)
         save = load_save(root_path / SAVE_DIR)
+        balance = _merged_balance(root_path, save)
         battle_was_active = save.battle is not None and save.battle.active
 
         if number in save.processed_issues:
