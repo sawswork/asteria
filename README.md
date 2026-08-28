@@ -4,10 +4,10 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-⚔️ 戦闘中: **星蝕の仔狼との遭遇**(ターン7)
+⚔️ 戦闘中: **星蝕の仔狼との遭遇**(ターン8)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦況ボード](assets/board.svg?v=t6-i7)
+![戦況ボード](assets/board.svg?v=t7-i8)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
