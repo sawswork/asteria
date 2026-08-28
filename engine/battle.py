@@ -127,6 +127,9 @@ def nemesis_enemy(save: Save) -> Optional[tuple[Enemy, str, str]]:
     e.field_tags = []
     e.last_special_turn = 0
     e.evolution_pending = None
+    # 進化履歴・歪みは記憶として残すが、HP契機の判定は再戦ごとに開き直す
+    # (進化の総数は evolutions_used とティア上限が抑える)
+    e.hp_evolution_triggered = False
     intro = f"倒れたはずの{e.name}が、深い唸りとともに再び立ち塞がる——宿敵との再戦。"
     return e, f"宿敵・{e.name}との再戦", intro
 
@@ -247,25 +250,44 @@ def _detect_resonance(ctx: _Ctx, commands: dict[str, Command]) -> None:
     cap = float(ctx.balance.get("resonance", {}).get("amp_cap", 3.0))
     ctx.resonance_mult = max(1.0, min(cap, budget / cost)) if cost > 0 else 1.0
     ctx.resonance_ids = {gen0_spell.id, newest[1].id}
-    # 相方が実際に技を放てる状態にあることが条件(下記 _resonance_amp で発動時に確認する)
-    ctx.resonance_partner = {gen0_spell.id: newest[2].id, newest[1].id: gen0_member.id}
+    # 相方が実際に技を放てることが条件(下記 _resonance_amp が発動時に確認する)
+    gen0_cmd = commands[gen0_member.role]
+    new_cmd = commands[newest[2].role]
+    ctx.resonance_partner = {
+        gen0_spell.id: (newest[1].id, newest[2].id, new_cmd.target),
+        newest[1].id: (gen0_spell.id, gen0_member.id, gen0_cmd.target),
+    }
 
 
 def _resonance_amp(ctx: _Ctx, spell_id: str) -> float:
-    """発動時の共鳴増幅率。相方が実際に放った/これから放てる場合にのみ効く。
+    """発動時の共鳴増幅率。相方が既に放った/これから確かに放てる場合にのみ効く。
 
-    宣言だけで成立させると、相方が先に倒される・行動不能になっても増幅が乗ってしまう。
+    宣言だけで成立させると、相方が先に倒される・行動不能になる・誓約で不発になっても
+    増幅だけが乗り、1戦闘1回の権利も消費されてしまう。
     """
     if spell_id not in ctx.resonance_ids:
         return 1.0
-    partner_id = ctx.resonance_partner.get(spell_id, "")
-    if partner_id not in ctx.resonance_fired:  # 相方がまだ動いていない: 動ける状態かを見る
-        partner = ctx.save.member_by_id(partner_id)
+    partner_spell_id, partner_member_id, partner_target = ctx.resonance_partner.get(
+        spell_id, ("", "", TARGET_AUTO)
+    )
+    if partner_spell_id not in ctx.resonance_fired:  # 相方はまだ動いていない: 放てるかを見る
+        partner = ctx.save.member_by_id(partner_member_id)
         if partner is None or not partner.alive or partner.stunned_turns > 0:
             return 1.0
+        partner_spell = _find_spell(partner, partner_spell_id)
+        if partner_spell is None:
+            return 1.0
+        if constraint_violations(partner, partner_spell, ctx.battle, ctx.balance, partner_target):
+            return 1.0  # 相方は誓約の条件を満たさず不発になる
     ctx.resonance_fired.add(spell_id)
     _trigger_resonance(ctx)
     return ctx.resonance_mult
+
+
+def _find_spell(member: Member, spell_id: str) -> Union[Ability, Ultimate, None]:
+    if member.ultimate.id == spell_id:
+        return member.ultimate
+    return next((a for a in member.abilities if a.id == spell_id), None)
 
 
 def _trigger_resonance(ctx: _Ctx) -> None:

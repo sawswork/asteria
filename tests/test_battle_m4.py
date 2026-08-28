@@ -435,3 +435,34 @@ def test_duplicate_constraints_counted_once(balance):
     from engine.spells import constraint_multiplier
 
     assert constraint_multiplier(["hp_below_30", "hp_below_30"], balance) == 1.6
+
+
+def test_resonance_amp_applies_when_partner_already_fired(battle_save, world, balance):
+    """相方が先に放った後なら、その相方が倒れていても2発目に増幅が乗る。"""
+    battle_save.battle.enemies[0].max_hp = battle_save.battle.enemies[0].hp = 100000
+    gen = _set_effect(battle_save, "attacker", 0, [{"tag": "damage", "power": 1.0, "target": "enemy"}], "新星撃", ct=2)
+    gen.id = "sora_gen3"
+    battle_save.member_by_role("support").agi = 99  # 初代技(ryuno_a3)が先に発動
+    battle_save.member_by_role("attacker").agi = 1
+    s1, r1 = resolve_turn(
+        battle_save, _cmds(attacker=("アビ1", "敵1"), support=("アビ3", "敵1")), balance, world
+    )
+    assert any("歴史の共鳴" in l for l in r1.lines)
+    assert s1.battle.resonance_used
+
+
+def test_resonance_blocked_when_partner_oath_will_fizzle(battle_save, world, balance):
+    """相方が誓約の条件を満たさず不発になる場合、共鳴は成立せず権利も消費しない。"""
+    battle_save.battle.enemies[0].max_hp = battle_save.battle.enemies[0].hp = 100000
+    gen = _set_effect(battle_save, "attacker", 0, [{"tag": "damage", "power": 1.0, "target": "enemy"}], "新星撃", ct=2)
+    gen.id = "sora_gen3"
+    battle_save.member_by_role("attacker").agi = 99  # 生成技が先に動く
+    partner = battle_save.member_by_role("support")
+    partner.agi = 1
+    partner.abilities[2].constraints = ["once_per_battle"]
+    partner.abilities[2].battle_uses = 1  # 相方は使い切っていて不発になる
+    s1, r1 = resolve_turn(
+        battle_save, _cmds(attacker=("アビ1", "敵1"), support=("アビ3", "敵1")), balance, world
+    )
+    assert not any("歴史の共鳴" in l for l in r1.lines)
+    assert not s1.battle.resonance_used  # 1戦闘1回の権利は温存される
