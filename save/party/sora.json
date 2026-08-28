@@ -8,8 +8,8 @@
   "atk": 22,
   "def": 11,
   "agi": 17,
-  "ult_gauge": 75,
-  "hate": 111.0,
+  "ult_gauge": 50,
+  "hate": 94.0,
   "buffs": [],
   "shield": 0,
   "stunned_turns": 0,
@@ -23,7 +23,7 @@
   },
   "slot_state": {
     "ability1": {
-      "ready_in": 1,
+      "ready_in": 2,
       "battle_uses": 1
     },
     "ability2": {

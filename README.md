@@ -4,12 +4,12 @@
 
 GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジン、README=画面、リポジトリ=セーブデータ。**
 
-⚔️ 戦闘中: **蝕まれた岩甲獣との戦い**(ターン4)
+⚔️ 戦闘中: **蝕まれた岩甲獣との戦い**(ターン3)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦闘シーン](assets/scene.svg?v=i32-a0)
+![戦闘シーン](assets/scene.svg?v=i33-a0)
 
-![戦況ボード](assets/board.svg?v=i32-a0)
+![戦況ボード](assets/board.svg?v=i33-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
@@ -18,12 +18,12 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 |---|---|
 | ▶ **[ターンを入力する](https://github.com/sawswork/asteria/issues/new?template=turn.yml)** | 4人の行動と対象を選んで送信(1フォーム=1ターン) |
 | ⚡ **[全員通常攻撃(1タップ)](https://github.com/sawswork/asteria/issues/new?template=turn.yml&attacker_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&attacker_target=%E8%87%AA%E5%8B%95&support_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&support_target=%E8%87%AA%E5%8B%95&tank_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&tank_target=%E8%87%AA%E5%8B%95&healer_action=%E9%80%9A%E5%B8%B8%E6%94%BB%E6%92%83&healer_target=%E8%87%AA%E5%8B%95)** | 全員「通常攻撃/自動」が入力済みのフォームが開く |
-| ✨ **[技生成の儀式](https://github.com/sawswork/asteria/issues/new?template=generate.yml)** | 生成権(残り**1**)を使い、詠唱文から新しい技を紡ぐ |
+| ✨ **[技生成の儀式](https://github.com/sawswork/asteria/issues/new?template=generate.yml)** | 生成権(残り**0**)を使い、詠唱文から新しい技を紡ぐ |
 | 🔮 **[技アップデート](https://github.com/sawswork/asteria/issues/new?template=update.yml)** | 使い込んだ技の進化3案から選ぶ |
 | ⏪ **[時戻しの儀式](https://github.com/sawswork/asteria/issues/new?template=rewind.yml)** | 生成権1を砕き、今の戦いの始まりへ時を巻き戻す(戦闘中のみ) |
 
 送信後、数十秒でこのページのボードが更新される(結果はIssueにも返信される)。
-現在: **Lv4**(XP 143)/ 技生成権 **1** / 控えメンバー 2人
+現在: **Lv4**(XP 143)/ 技生成権 **0** / 控えメンバー 2人
 
 ## 📖 遊び方
 
@@ -35,11 +35,11 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 
 ## 📜 旅の記録
 
-- リュノが新しい技「誓ひの濡雷閃」を紡いだ(旧「星の勇歌」)
 - 「蝕まれた岩甲獣との戦い」に勝利(ターン4)
 - パーティがLv4に到達
 - 「夜哭きの梟との戦い」に勝利(ターン5)
 - 流れ星の旅人が仲間に加わった
+- 時戻しの星片を砕いた——「蝕まれた岩甲獣との戦い」の記録最古の時点(ターン3)へ(技生成権-1)
 
 これまでの勝利数: **6**
 

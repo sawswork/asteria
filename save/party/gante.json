@@ -4,16 +4,16 @@
   "name": "ガンテ",
   "title": "星盾騎士",
   "max_hp": 181,
-  "hp": 166,
+  "hp": 172,
   "atk": 12,
   "def": 21,
   "agi": 6,
-  "ult_gauge": 35,
-  "hate": 284.0,
+  "ult_gauge": 0,
+  "hate": 278.0,
   "buffs": [
     {
       "stat": "def",
-      "mult": 0.85,
+      "mult": 1.6,
       "turns_left": 1
     }
   ],
