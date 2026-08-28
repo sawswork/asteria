@@ -3,19 +3,19 @@
   "world_id": "asteria",
   "rng": {
     "seed": 20260827,
-    "counter": 337
+    "counter": 373
   },
   "battle": {
-    "active": true,
+    "active": false,
     "name": "蝕まれた岩甲獣との戦い",
-    "turn": 3,
+    "turn": 6,
     "enemies": [
       {
         "id": "enemy_gen6",
         "name": "蝕まれた岩甲獣",
         "title": "軋む装甲",
         "max_hp": 320,
-        "hp": 187,
+        "hp": 0,
         "atk": 19,
         "def": 12,
         "agi": 12,
@@ -57,7 +57,7 @@
         "tier": "standard",
         "intelligent": true,
         "xp": 100,
-        "last_special_turn": 0,
+        "last_special_turn": 3,
         "field_tags": [],
         "weaknesses": [],
         "evolutions": [],
@@ -66,20 +66,20 @@
         "hp_evolution_triggered": false
       }
     ],
-    "result": null,
-    "taunt_holder_id": "gante",
-    "taunt_turns_left": 1,
+    "result": "victory",
+    "taunt_holder_id": null,
+    "taunt_turns_left": 0,
     "recent_log": [
-      "ソラの星技「星穿ち」! 蝕まれた岩甲獣に74ダメージ!",
-      "リュノの星技「流星の矢」! 蝕まれた岩甲獣に19ダメージ!",
-      "ミオの攻撃! 蝕まれた岩甲獣に6ダメージ!",
-      "蝕まれた岩甲獣「うぐぅッ…！」",
-      "蝕まれた岩甲獣の突進! ソラに13ダメージ!",
-      "ガンテの奥義《不動の星砦》! ガンテの防御が1.6倍(2ターン)!",
-      "ガンテの奥義《不動の星砦》! 敵の狙いを2ターンの間、自分に固定した!",
-      "ガンテは敵の注意を引いた(ヘイト+40)。",
-      "(岩甲獣はソラへの怒りを募らせ、ずしりと大地を揺らしながら迫る。)",
-      "⏪ 時が巻き戻った……星の巡りが再び動き出す。"
+      "蝕まれた岩甲獣「ぐおおおお！」",
+      "蝕まれた岩甲獣の突進! ガンテに6ダメージ!",
+      "ガンテの攻撃! 蝕まれた岩甲獣に10ダメージ!",
+      "(蝕まれた岩甲獣は獰猛に吠え、ガンテに突進した。)",
+      "—— ターン6 ——",
+      "ソラの奥義《彗星烈斬》! 蝕まれた岩甲獣に87ダメージ!",
+      "蝕まれた岩甲獣を撃破!",
+      "勝利! 「蝕まれた岩甲獣との戦い」を制した!",
+      "経験値100を獲得!(累計243)",
+      "(瀕死の岩甲獣は、理性など放り出し、最高のヘイトを持つガンテへ猛然と体当たりを仕掛ける。)"
     ],
     "scanned": [],
     "resonance_used": true,
@@ -114,10 +114,11 @@
     30,
     31,
     32,
-    33
+    33,
+    34
   ],
   "stats": {
-    "victories": 6,
+    "victories": 7,
     "spells_generated": 3,
     "enemies_generated": 6,
     "recruits": 2
