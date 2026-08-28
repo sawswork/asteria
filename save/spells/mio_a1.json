@@ -12,7 +12,8 @@
     }
   ],
   "desc": "味方1人を回復(2.2倍)",
-  "usage_count": 1,
+  "usage_count": 2,
   "kills": 0,
+  "constraints": [],
   "ct": 2
 }

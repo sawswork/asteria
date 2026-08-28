@@ -16,5 +16,6 @@
   "desc": "2ターンの間、全員の防御1.3倍",
   "usage_count": 0,
   "kills": 0,
+  "constraints": [],
   "ct": 3
 }
