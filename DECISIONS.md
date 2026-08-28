@@ -30,3 +30,4 @@
 - 2026-08-27: [レビュー反映] 戦闘ログの技種別名は world.json の power_system.ability_term を使用(エンジンから固有名詞「星技」を排除。bot名も中立の rpg-engine[bot] へ)
 - 2026-08-27: [レビュー反映] 通常攻撃倍率(damage.normal_attack_power)と回復下限(heal.min_heal)を balance.json へ一元化
 - 2026-08-27: 奥義ゲージは戦闘間で持ち越す(明文化。start_battle はHP/CT/バフ/ヘイトのみリセット)
+- 2026-08-28: M1実機E2E完了(8ターンで勝利・不正手不消費・連投健全)。v0.1-m1タグ付与。M2の実機AI受入には CLAUDE_CODE_OAUTH_TOKEN のSecrets設定が必要(ユーザー作業)

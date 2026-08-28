@@ -2,7 +2,7 @@
 
 マイルストーン進捗。毎コミットで更新する。
 
-## M1: 最小戦闘ループ — 実装完了(実機E2Eはmainマージ待ち)
+## M1: 最小戦闘ループ — ✅ 完了(2026-08-28)
 
 - [x] CLAUDE.md / ARCHITECTURE.md / PROGRESS.md / DECISIONS.md 作成
 - [x] world.json / balance.json(世界定数とバランス係数の分離)
@@ -17,8 +17,8 @@
 - [x] 冪等性(フォーム連投でセーブが壊れない)
 - [x] ユニットテスト全通過(AIモック・56件)
 - [x] ローカルE2E(3ターン以上戦い勝利: tests/test_turn_runner.py)
-- [ ] 実機E2E(Issue投稿→Actions→README更新→クローズ)※mainマージ後
-- [ ] PROGRESS.md 完了記録+gitタグ v0.1-m1(実機E2E通過後に打つ)
+- [x] 実機E2E: 8ターン連続でフォーム→Actions→README更新→クローズ→勝利(Issue #1〜#9)。不正手のエラー返信+ターン不消費(#2)、2連投+4連投の直列処理・セーブ健全性も実機確認
+- [x] PROGRESS.md 完了記録+gitタグ v0.1-m1
 
 ## M2: 生成系 — 未着手
 
