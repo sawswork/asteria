@@ -7,9 +7,9 @@ GitHubだけで遊ぶソロRPG。**Issue=コントローラ、Actions=エンジ�
 ⚔️ 戦闘中: **宿敵・夜哭きの梟との再戦**(ターン8)
 
 <!-- GAME:BOARD:BEGIN -->
-![戦闘シーン](assets/scene.svg?v=i47-a0)
+![戦闘シーン](assets/scene.svg?v=i48-a0)
 
-![戦況ボード](assets/board.svg?v=i47-a0)
+![戦況ボード](assets/board.svg?v=i48-a0)
 <!-- GAME:BOARD:END -->
 
 ## 🎮 コマンド
