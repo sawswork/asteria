@@ -8,9 +8,20 @@
   "atk": 11,
   "def": 10,
   "agi": 13,
-  "ult_gauge": 100,
-  "hate": 18.0,
-  "buffs": [],
+  "ult_gauge": 0,
+  "hate": 28.0,
+  "buffs": [
+    {
+      "stat": "atk",
+      "mult": 1.35,
+      "turns_left": 1
+    },
+    {
+      "stat": "def",
+      "mult": 1.25,
+      "turns_left": 1
+    }
+  ],
   "shield": 0,
   "stunned_turns": 0,
   "dots": [],
@@ -22,7 +33,7 @@
   },
   "slot_state": {
     "ability1": {
-      "ready_in": 1
+      "ready_in": 0
     },
     "ability2": {
       "ready_in": 0
