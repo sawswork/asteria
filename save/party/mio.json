@@ -17,7 +17,7 @@
   "slots": {
     "ability1": "mio_a1",
     "ability2": "mio_a2",
-    "ability3": "mio_a3",
+    "ability3": "mio_gen2",
     "ultimate": "mio_ult"
   },
   "slot_state": {

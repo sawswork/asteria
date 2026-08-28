@@ -86,11 +86,12 @@
     14,
     16,
     17,
-    18
+    18,
+    19
   ],
   "stats": {
     "victories": 2,
-    "spells_generated": 1,
+    "spells_generated": 2,
     "enemies_generated": 1
   },
   "pending_update": null
