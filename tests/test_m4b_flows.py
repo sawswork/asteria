@@ -190,3 +190,23 @@ def test_rewind_at_battle_start_rejected(tmp_path):
     assert "これ以上戻れません" in gh.comments[-1][1]
     after = load_save(root / "save")
     assert after.spell_tokens == 1
+
+
+def test_repeated_rewind_costs_a_token_each_time(tmp_path):
+    """同一戦闘で時戻しを重ねるたびに生成権が減る(復元値からではなく現在値から引く)。"""
+    root = make_root(tmp_path / "work")
+    save = load_save(root / "save")
+    save.spell_tokens = 2
+    write_save(save, root / "save")
+    _setup_git(tmp_path, root)
+    gh = FakeGhApi()
+    _run(root, make_issue(1, body_from(all_normal())), do_git=True, gh=gh)
+    _run(root, make_issue(2, body_from(all_normal())), do_git=True, gh=gh)
+    _run(root, make_issue(3, REWIND_BODY, title="[REWIND] 時戻しの儀式"), do_git=True, gh=gh)
+    assert load_save(root / "save").spell_tokens == 1
+    _run(root, make_issue(4, body_from(all_normal())), do_git=True, gh=gh)  # 再びターンを進める
+    _run(root, make_issue(5, REWIND_BODY, title="[REWIND] 時戻しの儀式"), do_git=True, gh=gh)
+    assert load_save(root / "save").spell_tokens == 0  # 2回目も課金される
+    _run(root, make_issue(6, body_from(all_normal())), do_git=True, gh=gh)
+    _run(root, make_issue(7, REWIND_BODY, title="[REWIND] 時戻しの儀式"), do_git=True, gh=gh)
+    assert "技生成権がありません" in gh.comments[-1][1]  # 3回目は代償を払えず拒否

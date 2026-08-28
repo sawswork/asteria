@@ -26,6 +26,7 @@ from .commands import (
     TARGET_AUTO,
     TARGET_ENEMIES,
     Command,
+    constraint_violations,
     normal_attack_effects,
 )
 import re
@@ -142,6 +143,8 @@ class _Ctx:
     world: dict[str, Any] = field(default_factory=dict)  # チェイン反応表・歪み弱点プールの参照
     evolution_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)  # AI進化案
     resonance_ids: set[str] = field(default_factory=set)  # このターン共鳴する技ID
+    resonance_partner: dict[str, str] = field(default_factory=dict)  # 技ID→相方のメンバーID
+    resonance_fired: set[str] = field(default_factory=set)  # 実際に発動した共鳴技ID
     resonance_mult: float = 1.0
     current_amp: float = 1.0  # 実行中アクションの増幅(共鳴)
 
@@ -244,6 +247,25 @@ def _detect_resonance(ctx: _Ctx, commands: dict[str, Command]) -> None:
     cap = float(ctx.balance.get("resonance", {}).get("amp_cap", 3.0))
     ctx.resonance_mult = max(1.0, min(cap, budget / cost)) if cost > 0 else 1.0
     ctx.resonance_ids = {gen0_spell.id, newest[1].id}
+    # 相方が実際に技を放てる状態にあることが条件(下記 _resonance_amp で発動時に確認する)
+    ctx.resonance_partner = {gen0_spell.id: newest[2].id, newest[1].id: gen0_member.id}
+
+
+def _resonance_amp(ctx: _Ctx, spell_id: str) -> float:
+    """発動時の共鳴増幅率。相方が実際に放った/これから放てる場合にのみ効く。
+
+    宣言だけで成立させると、相方が先に倒される・行動不能になっても増幅が乗ってしまう。
+    """
+    if spell_id not in ctx.resonance_ids:
+        return 1.0
+    partner_id = ctx.resonance_partner.get(spell_id, "")
+    if partner_id not in ctx.resonance_fired:  # 相方がまだ動いていない: 動ける状態かを見る
+        partner = ctx.save.member_by_id(partner_id)
+        if partner is None or not partner.alive or partner.stunned_turns > 0:
+            return 1.0
+    ctx.resonance_fired.add(spell_id)
+    _trigger_resonance(ctx)
+    return ctx.resonance_mult
 
 
 def _trigger_resonance(ctx: _Ctx) -> None:
@@ -630,6 +652,22 @@ def _apply_member_effects(
         # 未知タグは無視(効果タグ辞書の拡張はエンジン更新で行う)
 
 
+def _constraints_hold(ctx: _Ctx, member: Member, spell: Union[Ability, Ultimate], cmd_target: str) -> bool:
+    """発動の瞬間に誓約の条件がまだ成立しているか(実行時ガード)。
+
+    validate_commands はターン開始時点で検証するが、解決中に状態は動く
+    (味方の回復でHP条件を外れる/対象が倒れて自動再選択で格下の敵に向く等)。
+    予算を拡張した代償が空手形にならないよう、発動時にもう一度確かめる。
+    """
+    if not spell.constraints:
+        return True
+    violations = constraint_violations(member, spell, ctx.battle, ctx.balance, cmd_target)
+    if not violations:
+        return True
+    _log(ctx, f"{member.name}の「{spell.name}」は誓約の条件を満たさず不発!({violations[0]})")
+    return False
+
+
 def _apply_constraint_backlash(ctx: _Ctx, member: Member, spell: Union[Ability, Ultimate]) -> None:
     """誓約の代償(self_stun_after)。次の1ターンを失う。
 
@@ -658,12 +696,13 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
         if ability.ready_in > 0:  # 実行時ガード(検証済みだが防御的に)
             _log(ctx, f"{member.name}の{ability.name}はまだ使えない!")
             return
+        if not _constraints_hold(ctx, member, ability, cmd.target):
+            ability.ready_in = ability.ct  # 不発でもCTは消費(条件待ちで無限に構えられない)
+            return
         ability.ready_in = ability.ct
         ability.usage_count += 1
         ability.battle_uses += 1
-        if ability.id in ctx.resonance_ids:
-            _trigger_resonance(ctx)
-            ctx.current_amp = ctx.resonance_mult
+        ctx.current_amp = _resonance_amp(ctx, ability.id)
         _apply_member_effects(
             ctx, member, ability.effects, cmd.target, f"{ctx.ability_term}「{ability.name}」", ability
         )
@@ -676,12 +715,12 @@ def _member_act(ctx: _Ctx, member: Member, cmd: Command) -> None:
         if member.ult_gauge < ult_max:
             _log(ctx, f"{member.name}の奥義はゲージ不足で不発!")
             return
+        if not _constraints_hold(ctx, member, member.ultimate, cmd.target):
+            return  # 奥義は不発ならゲージを温存する(CTと違い蓄積が代償のため)
         member.ult_gauge = 0
         member.ultimate.usage_count += 1
         member.ultimate.battle_uses += 1
-        if member.ultimate.id in ctx.resonance_ids:
-            _trigger_resonance(ctx)
-            ctx.current_amp = ctx.resonance_mult
+        ctx.current_amp = _resonance_amp(ctx, member.ultimate.id)
         _apply_member_effects(
             ctx, member, member.ultimate.effects, cmd.target, f"奥義《{member.ultimate.name}》", member.ultimate
         )

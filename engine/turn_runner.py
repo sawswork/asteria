@@ -585,7 +585,9 @@ def _handle_rewind(save: Save, body: str, balance: dict[str, Any], root: str, re
             "## ⚠ 時戻しに失敗\n\n過去のセーブの復元に失敗しました。セーブは変更されていません。"
             f"\n\n{_links(repo_slug)}"
         )
-    restored.spell_tokens = max(0, restored.spell_tokens - 1)
+    # 代償は「現在の」所持数から引く(復元値から引くと、同じ地点へ何度戻っても合計1で済んでしまう)。
+    # 戦闘中に生成権は増えないので、現在値 ≤ 復元値。時戻しを重ねるほど確実に減る。
+    restored.spell_tokens = max(0, save.spell_tokens - 1)
     # 処理済みIssueは現在の記録と統合する(巻き戻しで過去のIssueが未処理に戻らないように)
     restored.processed_issues = list(dict.fromkeys([*restored.processed_issues, *save.processed_issues]))
     del restored.processed_issues[:-PROCESSED_ISSUES_MAX]

@@ -361,3 +361,77 @@ def test_parse_generate_body_with_oaths():
         "HP30%以下でのみ発動(予算×1.6)",
         "使用後に自身1ターン行動不能(予算×1.5)",
     ]
+
+
+# ---- レビュー指摘の回帰テスト --------------------------------------------
+
+
+def test_oath_recheck_at_cast_time_hp_condition(battle_save, world, balance):
+    """検証後にヒーラーが回復してHP条件を外れたら、誓約技は不発になる(実行時ガード)。"""
+    atk = battle_save.member_by_role("attacker")
+    ability = _set_effect(battle_save, "attacker", 0, [{"tag": "damage", "power": 4.0, "target": "enemy"}], "背水撃")
+    ability.constraints = ["hp_below_30"]
+    atk.hp = int(atk.max_hp * 0.2)  # 宣言時は条件成立
+    atk.agi = 1  # ヒーラーより後に動く
+    healer = battle_save.member_by_role("healer")
+    healer.agi = 99
+    _set_effect(battle_save, "healer", 0, [{"tag": "heal", "power": 4.0, "target": "ally"}], "大回復")
+    healer.atk = 200  # 全快させる回復量
+    assert validate_commands(battle_save, battle_save.battle, _cmds(attacker=("アビ1", "自動")), balance) == []
+    _, r1 = resolve_turn(
+        battle_save, _cmds(attacker=("アビ1", "自動"), healer=("アビ1", "アタッカー")), balance, world
+    )
+    assert any("誓約の条件を満たさず不発" in l for l in r1.lines)
+
+
+def test_oath_recheck_at_cast_time_target_tier(battle_save, world, balance):
+    """精鋭限定の誓約技は、対象が倒れて格下へ自動再選択された場合に不発。"""
+    import copy
+
+    elite = battle_save.battle.enemies[0]
+    elite.tier = "elite"
+    elite.hp = 1
+    minion = copy.deepcopy(elite)
+    minion.id, minion.tier, minion.hp = "minion1", "minion", 500
+    battle_save.battle.enemies.append(minion)
+    ability = _set_effect(battle_save, "attacker", 0, [{"tag": "damage", "power": 1.0, "target": "enemy"}], "精鋭狩り")
+    ability.constraints = ["vs_elite_plus"]
+    battle_save.member_by_role("attacker").agi = 1  # 他の味方が先に精鋭を倒す
+    cmds = _cmds(attacker=("アビ1", "自動"))
+    _, r1 = resolve_turn(battle_save, cmds, balance, world)
+    assert any("誓約の条件を満たさず不発" in l for l in r1.lines)
+
+
+def test_resonance_requires_partner_to_be_able_to_act(battle_save, world, balance):
+    """相方が行動不能なら共鳴は成立しない(宣言だけで増幅させない)。"""
+    battle_save.battle.enemies[0].max_hp = battle_save.battle.enemies[0].hp = 100000
+    gen = _set_effect(battle_save, "attacker", 0, [{"tag": "damage", "power": 1.0, "target": "enemy"}], "新星撃", ct=2)
+    gen.id = "sora_gen3"
+    battle_save.member_by_role("support").stunned_turns = 1  # 初代技(ryuno_a3)の使い手が動けない
+    s1, r1 = resolve_turn(
+        battle_save, _cmds(attacker=("アビ1", "敵1"), support=("アビ3", "敵1")), balance, world
+    )
+    assert not any("歴史の共鳴" in l for l in r1.lines)
+    assert not s1.battle.resonance_used
+
+
+def test_unenforced_constraint_id_gives_no_budget(balance):
+    """balance側にIDを足しただけ(エンジン未実装)では予算は一切拡張されない。"""
+    import copy
+
+    from engine.spells import ENGINE_CONSTRAINTS, constraint_multiplier, known_constraints
+
+    b = copy.deepcopy(balance)
+    b["constraints"]["free_lunch"] = {"mult": 3.0, "label": "代償なし"}
+    assert "free_lunch" not in known_constraints(b)
+    assert constraint_multiplier(["free_lunch"], b) == 1.0
+    assert set(known_constraints(b)) <= ENGINE_CONSTRAINTS
+    spell = {"name": "詐欺技", "desc": "d", "ct": 2,
+             "effects": [{"tag": "damage", "power": 4.0, "target": "enemy"}]}
+    assert any("未知の制約タグ" in e for e in validate_spell(spell, b, 1, "attacker", False, ["free_lunch"]))
+
+
+def test_duplicate_constraints_counted_once(balance):
+    from engine.spells import constraint_multiplier
+
+    assert constraint_multiplier(["hp_below_30", "hp_below_30"], balance) == 1.6

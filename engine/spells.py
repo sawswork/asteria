@@ -193,20 +193,36 @@ def effect_cost(effect: dict[str, Any], balance: dict[str, Any]) -> float:
     return float("inf")
 
 
+# エンジンが実際に発動条件/代償を強制できる誓約ID。balance.json 側に新しいIDを足しても、
+# ここ(と commands.constraint_violations / battle._apply_constraint_backlash)に実装が無い限り
+# 予算は一切拡張されない——「代償なしで予算だけ増える」抜け道を作らないための不変則。
+ENGINE_CONSTRAINTS: frozenset[str] = frozenset(
+    {"hp_below_30", "self_stun_after", "once_per_battle", "first_three_turns", "vs_elite_plus"}
+)
+
+
 def constraint_multiplier(constraints: list[str], balance: dict[str, Any]) -> float:
-    """制約(誓約)による予算乗算係数。未知の制約IDは無効(1.0扱いにせずエラーは呼び出し側で)。"""
-    table = balance.get("constraints", {})
-    cap = float(table.get("total_mult_cap", 3.0))
+    """制約(誓約)による予算乗算係数。エンジンが強制できないIDは乗算しない。
+
+    同じ誓約を重複して並べても1回分しか効かない(重複で予算を水増しさせない)。
+    """
+    table = known_constraints(balance)
+    cap = float(balance.get("constraints", {}).get("total_mult_cap", 3.0))
     mult = 1.0
-    for cid in constraints:
+    for cid in dict.fromkeys(constraints):
         entry = table.get(cid)
-        if isinstance(entry, dict):
+        if entry is not None:
             mult *= float(entry.get("mult", 1.0))
     return min(cap, mult)
 
 
 def known_constraints(balance: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {k: v for k, v in balance.get("constraints", {}).items() if isinstance(v, dict)}
+    """balance定義とエンジン実装の両方が揃っている誓約だけを返す。"""
+    return {
+        k: v
+        for k, v in balance.get("constraints", {}).items()
+        if isinstance(v, dict) and k in ENGINE_CONSTRAINTS
+    }
 
 
 def ct_factor(ct: int, balance: dict[str, Any]) -> float:

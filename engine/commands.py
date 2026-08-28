@@ -86,7 +86,7 @@ def _effects_for_action(member: Member, action: str, balance: dict[str, Any]) ->
     return []
 
 
-def _constraint_violations(
+def constraint_violations(
     member: Member,
     spell: Union[Ability, Ultimate],
     battle: Battle,
@@ -186,7 +186,7 @@ def validate_commands(
         elif cmd.action == ACTION_ULT:
             spell_obj = member.ultimate
         if spell_obj is not None and spell_obj.constraints:
-            violations = _constraint_violations(member, spell_obj, battle, balance, cmd.target)
+            violations = constraint_violations(member, spell_obj, battle, balance, cmd.target)
             if violations:
                 errors.extend(InvalidMove(role, v) for v in violations)
                 continue
